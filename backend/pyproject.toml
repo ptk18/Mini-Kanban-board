@@ -1,0 +1,26 @@
+[project]
+name = "mini-kanban-backend"
+version = "0.1.0"
+description = "FastAPI backend for the Mini Kanban board"
+requires-python = ">=3.14"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn>=0.30",
+    "sqlalchemy>=2.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "httpx2>=2.13",
+]
+
+[tool.pytest.ini_options]
+# Lets `import app` resolve when pytest runs from backend/ without installing the package.
+pythonpath = ["."]
+testpaths = ["tests"]
+# Starlette 1.6.0 references the deprecated `anyio.abc.BlockingPortal` alias at import
+# time (anyio >= 4.15 warns). It is upstream code, not ours; ignore only that one warning.
+filterwarnings = [
+    "ignore:The anyio.abc.BlockingPortal alias is deprecated:DeprecationWarning:starlette.testclient",
+]
