@@ -58,6 +58,7 @@ The interactive OpenAPI UI is at `http://127.0.0.1:8000/docs`. Its
 |---|---|---|
 | `JWT_SECRET` | yes, for the server | HS256 signing secret for access tokens. No default; at least 32 characters. The server refuses to start without it (see above). The test suite sets its own value in `tests/conftest.py`, so it is not needed for `uv run pytest`. Changing it invalidates every token issued before — that is the only way to log everyone out. |
 | `DATABASE_URL` | no | SQLAlchemy URL of the database, see [Database](#database). |
+| `CORS_ORIGINS` | no | Comma-separated browser origins allowed to call the API (`Authorization` and `Content-Type` headers, all API methods). Default `http://localhost:3000`, the Next.js dev server. |
 | `GEMINI_API_KEY` | only for the AI routes | Google Gemini API key. Without it every `/ai/...` route answers `503` and everything else keeps working. |
 | `GEMINI_MODEL` | no | Gemini model name, default `gemini-2.5-flash`. |
 

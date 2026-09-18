@@ -31,8 +31,8 @@ no `.env` file handling. The test suites set their own values.
 | `DATABASE_URL` | backend | no | SQLAlchemy URL; default `sqlite:///./mini_kanban.db` (a file in `backend/`). `sqlite://` is in-memory. |
 | `GEMINI_API_KEY` | backend | only for `/ai/...` | Google Gemini API key. Without it the AI routes answer `503`; everything else works. |
 | `GEMINI_MODEL` | backend | no | Gemini model, default `gemini-2.5-flash`. |
-| `CORS_ORIGINS` | backend | no | Browser origins allowed to call the API — **not implemented yet** (issue #37). Until then the frontend must be served from the same origin or use a dev proxy. |
-| `NEXT_PUBLIC_API_URL` | frontend | — | Backend base URL for the browser, e.g. `http://127.0.0.1:8000` — **read by the API client from issue #21, not yet in the code.** |
+| `CORS_ORIGINS` | backend | no | Comma-separated browser origins allowed to call the API. Default `http://localhost:3000` (the Next.js dev server). |
+| `NEXT_PUBLIC_API_URL` | frontend | no | Backend base URL as seen from the browser. Default `http://127.0.0.1:8000`; set it in `frontend/.env.local` (see `frontend/.env.example`). |
 
 Generate a secret:
 
@@ -70,8 +70,9 @@ npm ci
 npm run dev
 ```
 
-Serves `http://localhost:3000` (a dark placeholder page; the auth and board
-screens are issues #21–#25).
+Serves `http://localhost:3000`: sign up or log in, then manage boards at
+`/boards`. The board screen itself (`/boards/[id]`) is a placeholder until
+issue #23.
 
 ## Seed a demo board
 
@@ -145,10 +146,10 @@ The visual direction (dark developer tool, minimal) is in
 
 ## Screenshots
 
-_Placeholders until the frontend screens land (issues #21–#25):_
+_Placeholders until the remaining screens land (issues #23–#25):_
 
-- Login / Sign up
-- Board list
+- Login / Sign up (`/login`, `/signup`)
+- Board list (`/boards`)
 - Board with columns and cards
 - Card modal (fields, labels, checklist, comments, AI actions)
 - Dashboard
