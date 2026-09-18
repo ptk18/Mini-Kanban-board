@@ -5,7 +5,17 @@ from fastapi import FastAPI
 
 import app.models  # noqa: F401  # registers every table on Base.metadata before create_all
 from app.database import create_all
-from app.routers import auth, boards, cards, checklist, columns, comments, labels, members
+from app.routers import (
+    auth,
+    boards,
+    cards,
+    checklist,
+    columns,
+    comments,
+    dashboard,
+    labels,
+    members,
+)
 from app.services.auth import get_jwt_secret
 
 
@@ -23,6 +33,7 @@ app.include_router(boards.router)
 app.include_router(columns.router)
 app.include_router(labels.router)
 app.include_router(members.router)
+app.include_router(dashboard.router)
 app.include_router(cards.router)
 app.include_router(checklist.router)
 app.include_router(comments.router)

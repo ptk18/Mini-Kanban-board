@@ -98,6 +98,7 @@ def test_only_expected_routes_are_exposed():
         "/boards": {"get", "post"},
         "/boards/{board_id}": {"get", "patch", "delete"},
         "/boards/{board_id}/columns": {"post"},
+        "/boards/{board_id}/dashboard": {"get"},
         "/boards/{board_id}/invite": {"post"},
         "/invite/{token}/join": {"post"},
         "/boards/{board_id}/members": {"get", "post"},

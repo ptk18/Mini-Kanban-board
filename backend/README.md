@@ -226,6 +226,27 @@ should point at.
 > does not alter existing tables, so delete any local `mini_kanban.db`
 > created before this change and restart the server.
 
+## Dashboard
+
+`GET /boards/{board_id}/dashboard` (members only) returns the four board
+metrics and nothing else — no trends or timelines:
+
+```json
+{"board_id": 1, "total": 3,
+ "by_column": [{"column_id": 1, "name": "To Do", "position": 0, "count": 2}, ...],
+ "overdue": 1, "done": 1, "progress_percent": 33.3}
+```
+
+- `by_column` lists every column in position order, zero counts included.
+- `overdue` counts cards with `due_date` in the past (UTC) that are not in a
+  Done column.
+- `progress_percent` is `done / total * 100` rounded to one decimal, `0` when
+  the board has no cards.
+- **A column is "Done" when its name, trimmed and lower-cased, is `done`.**
+  The default "Done" column qualifies; renaming it to "Shipped" stops it
+  counting, and any additional column named "done" counts too. There is no
+  per-column flag — the name is the only signal.
+
 ## Cards and labels
 
 Same access rule as boards: members only, `404` otherwise.
