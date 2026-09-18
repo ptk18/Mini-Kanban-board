@@ -47,12 +47,15 @@ describe("BoardView rendering", () => {
     const sections = screen.getAllByRole("region");
     expect(sections.map((s) => s.getAttribute("aria-label"))).toEqual(["To Do", "In Progress", "Done"]);
 
+    // Cards are sortable, so dnd-kit gives them role="button"; count the <li>s.
+    const cardsIn = (section: HTMLElement) => section.querySelectorAll("ul > li");
     const todo = within(sections[0]);
-    expect(todo.getAllByRole("listitem").map((li) => li.textContent)).toHaveLength(2);
+    expect(cardsIn(sections[0])).toHaveLength(2);
     expect(todo.getByText("Write tests")).toBeDefined();
     expect(todo.getByText("Ship it")).toBeDefined();
-    expect(within(sections[1]).queryAllByRole("listitem")).toHaveLength(0);
+    expect(cardsIn(sections[1])).toHaveLength(0);
     expect(within(sections[2]).getByText("Set up CI")).toBeDefined();
+    expect(screen.getByRole("button", { name: "Drag To Do" })).toBeDefined();
   });
 
   test("a card shows priority, due date, labels and assignee; Done cards are never overdue", async () => {

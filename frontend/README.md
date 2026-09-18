@@ -40,7 +40,9 @@ Escape cancels), delete with confirmation (owner only). `/boards/[id]` is the
 board: columns of compact cards (title, priority, due date — red when
 overdue and not in Done — labels, assignee), an **Add card** input per
 column, a status dropdown on each card to move it, **Add column** at the
-end, click a column header to rename it, **Delete** with a confirmation that
+end, drag a card to reorder it or move it to another column, drag the ⋮⋮
+handle to reorder columns (the move shows immediately and rolls back if the
+server refuses), click a column header to rename it, **Delete** with a confirmation that
 explains the cards must be moved first. The toolbar searches (`q`) and
 filters by column, priority and assignee (AND), with an active-filter count
 and **Clear**. **Members** opens the panel (owner: copy invite link, invite
@@ -82,6 +84,7 @@ Exact installed versions (from `package-lock.json`):
 - `next` 16.3.5
 - `react` 19.2.8
 - `tailwindcss` 4.3.3 (CSS-first config in `app/globals.css`; no `tailwind.config.*`)
+- `@dnd-kit/core` 6.3, `@dnd-kit/sortable` 10.0, `@dnd-kit/utilities` 3.2 — drag-and-drop (pointer + keyboard)
 - `vitest` 5.0.1, with `@testing-library/react` 16.3.3 and `jsdom` 30.1.0
 
 The test setup follows the Next.js Vitest guide:
@@ -96,6 +99,8 @@ watch mode).
 - `app/login/`, `app/signup/` — auth pages
 - `app/boards/page.tsx` — board list (guarded); `app/boards/[id]/page.tsx` — board; `app/boards/[id]/dashboard/page.tsx` — dashboard; `app/invite/[token]/page.tsx` — join by invite link
 - `lib/api.ts` — typed API client for auth, boards, columns, cards (`buildCardQuery` for the filters), labels, members/invites and the dashboard; token in `localStorage` (`mini-kanban.token`); non-2xx → `ApiError { status, detail }`
+- `lib/positions.ts` — pure drop → `{column_id, position}` / column index calculation and the optimistic array helpers (`tests/positions.test.ts`)
+- `components/board/dnd.ts` — dnd-kit ids and `data` payloads
 - `hooks/useBoardData.ts` — board + filtered cards + members with `refetch()`, refetching on window focus / visibility
 - `components/board/` — `BoardView`, `BoardToolbar`, `ColumnView`, `CardItem`, `AddColumnForm`, `MembersPanel`, `DashboardView`; `components/InviteJoin.tsx`
 - `lib/auth.tsx` — `AuthProvider` / `useAuth()`: restores the session from the stored token on load (any `401` clears it), `login`, `signup`, `logout`
@@ -103,5 +108,5 @@ watch mode).
 - `components/RequireAuth.tsx` — route guard (redirects to `/login`); `AppHeader.tsx` — brand link, user name, log out
 - `components/LoginForm.tsx`, `SignupForm.tsx`, `BoardList.tsx`, `Field.tsx`, `ui.tsx`
 - `app/globals.css` — Tailwind import and `color-scheme: dark`
-- `tests/` — Vitest tests: `page`, `login-form`, `board-list`, `board-view`, `board-toolbar`, `dashboard`, `invite` (`fixtures.ts` shared data; `setup.ts` registers Testing Library cleanup)
+- `tests/` — Vitest tests: `page`, `login-form`, `board-list`, `board-view`, `board-toolbar`, `dashboard`, `invite`, `positions` (`fixtures.ts` shared data; `setup.ts` registers Testing Library cleanup)
 - `vitest.config.mts` — Vitest config; `@/*` resolves to `./*` via `vite-tsconfig-paths`

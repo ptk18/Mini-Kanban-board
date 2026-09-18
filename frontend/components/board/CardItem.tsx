@@ -1,6 +1,9 @@
 "use client";
 
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import type { Card, Column, Member } from "@/lib/api";
+import { cardDragId } from "@/components/board/dnd";
 
 const priorityClass = {
   high: "text-red-400",
@@ -28,9 +31,20 @@ export function CardItem({
   const column = columns.find((c) => c.id === card.column_id);
   const assignee = members.find((m) => m.user_id === card.assignee_id);
   const overdue = isOverdue(card, column);
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: cardDragId(card.id),
+    data: { type: "card", id: card.id },
+  });
 
   return (
-    <li className="flex flex-col gap-1.5 rounded-md bg-zinc-800 px-3 py-2 transition-colors hover:bg-zinc-700">
+    <li
+      ref={setNodeRef}
+      style={{ transform: CSS.Translate.toString(transform), transition, opacity: isDragging ? 0.4 : 1 }}
+      {...attributes}
+      {...listeners}
+      aria-roledescription="draggable card"
+      className="flex cursor-grab flex-col gap-1.5 rounded-md bg-zinc-800 px-3 py-2 transition-colors hover:bg-zinc-700 active:cursor-grabbing"
+    >
       <p className="truncate text-sm font-medium text-zinc-100" title={card.title}>
         {card.title}
       </p>

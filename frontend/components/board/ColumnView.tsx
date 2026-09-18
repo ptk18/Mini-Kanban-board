@@ -1,8 +1,12 @@
 "use client";
 
 import { useState, type FormEvent, type KeyboardEvent } from "react";
+import { useDroppable } from "@dnd-kit/core";
+import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import type { Card, Column, Member } from "@/lib/api";
 import { CardItem } from "@/components/board/CardItem";
+import { cardDragId, columnDragId, columnDropId } from "@/components/board/dnd";
 import { ErrorText, PrimaryButton, SecondaryButton, TextInput } from "@/components/ui";
 
 export function deleteColumnMessage(column: Column, cardCount: number): string {
@@ -35,6 +39,19 @@ export function ColumnView({
   const [draft, setDraft] = useState(column.name);
   const [newTitle, setNewTitle] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const {
+    setNodeRef: setColumnRef,
+    setActivatorNodeRef: setHandleRef,
+    attributes: handleAttributes,
+    listeners: handleListeners,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: columnDragId(column.id), data: { type: "column", id: column.id } });
+  const { setNodeRef: setDropRef, isOver } = useDroppable({
+    id: columnDropId(column.id),
+    data: { type: "column", id: column.id },
+  });
 
   function startEditing() {
     setDraft(column.name);
@@ -92,10 +109,27 @@ export function ColumnView({
 
   return (
     <section
+      ref={setColumnRef}
+      style={{
+        transform: CSS.Translate.toString(transform),
+        transition,
+        opacity: isDragging ? 0.5 : 1,
+      }}
       aria-label={column.name}
-      className="flex w-72 shrink-0 flex-col gap-2 rounded-lg bg-zinc-900 p-3"
+      className={`flex w-72 shrink-0 flex-col gap-2 rounded-lg bg-zinc-900 p-3 ${isOver ? "ring-2 ring-zinc-600" : ""}`}
     >
       <header className="flex items-center gap-2">
+        <button
+          type="button"
+          ref={setHandleRef}
+          {...handleAttributes}
+          {...handleListeners}
+          aria-label={`Drag ${column.name}`}
+          title="Drag to reorder"
+          className="cursor-grab px-1 text-zinc-600 hover:text-zinc-300 active:cursor-grabbing"
+        >
+          ⋮⋮
+        </button>
         {editing ? (
           <TextInput
             aria-label={`Rename ${column.name}`}
@@ -127,17 +161,19 @@ export function ColumnView({
       </header>
       {error && <ErrorText>{error}</ErrorText>}
 
-      <ul className="flex flex-col gap-2">
-        {cards.map((card) => (
-          <CardItem
-            key={card.id}
-            card={card}
-            columns={columns}
-            members={members}
-            onMove={(columnId) => onMoveCard(card, columnId)}
-          />
-        ))}
-      </ul>
+      <SortableContext items={cards.map((c) => cardDragId(c.id))} strategy={verticalListSortingStrategy}>
+        <ul ref={setDropRef} className="flex min-h-8 flex-col gap-2">
+          {cards.map((card) => (
+            <CardItem
+              key={card.id}
+              card={card}
+              columns={columns}
+              members={members}
+              onMove={(columnId) => onMoveCard(card, columnId)}
+            />
+          ))}
+        </ul>
+      </SortableContext>
 
       <form onSubmit={handleAddCard} className="mt-1 flex gap-2">
         <TextInput
