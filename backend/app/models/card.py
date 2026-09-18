@@ -45,7 +45,10 @@ class Card(Base):
         back_populates="parent", passive_deletes=True
     )
     checklist_items: Mapped[list["ChecklistItem"]] = relationship(
-        back_populates="card", cascade="all, delete-orphan", passive_deletes=True
+        back_populates="card",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        order_by="ChecklistItem.position",
     )
     comments: Mapped[list["Comment"]] = relationship(
         back_populates="card", cascade="all, delete-orphan", passive_deletes=True

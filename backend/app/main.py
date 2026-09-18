@@ -5,7 +5,7 @@ from fastapi import FastAPI
 
 import app.models  # noqa: F401  # registers every table on Base.metadata before create_all
 from app.database import create_all
-from app.routers import auth
+from app.routers import auth, cards, checklist
 from app.services.auth import get_jwt_secret
 
 
@@ -19,6 +19,8 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
 
 app = FastAPI(title="Mini Kanban API", lifespan=lifespan)
 app.include_router(auth.router)
+app.include_router(cards.router)
+app.include_router(checklist.router)
 
 
 @app.get("/health")

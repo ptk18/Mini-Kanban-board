@@ -87,14 +87,18 @@ def test_lifespan_is_idempotent():
         assert client.get("/health").status_code == 200
 
 
-def test_only_health_and_auth_routes_are_exposed():
+def test_only_expected_routes_are_exposed():
     with TestClient(fastapi_app) as client:
         paths = client.get("/openapi.json").json()["paths"]
-    assert paths.keys() == {"/health", "/auth/signup", "/auth/login", "/auth/me"}
-    assert paths["/health"].keys() == {"get"}
-    assert paths["/auth/signup"].keys() == {"post"}
-    assert paths["/auth/login"].keys() == {"post"}
-    assert paths["/auth/me"].keys() == {"get"}
+    assert {path: set(ops) for path, ops in paths.items()} == {
+        "/health": {"get"},
+        "/auth/signup": {"post"},
+        "/auth/login": {"post"},
+        "/auth/me": {"get"},
+        "/cards/{card_id}": {"get"},
+        "/cards/{card_id}/checklist": {"get", "post"},
+        "/checklist/{item_id}": {"patch", "delete"},
+    }
 
 
 def test_utcnow_is_naive_utc():

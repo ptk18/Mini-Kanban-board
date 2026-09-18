@@ -179,6 +179,36 @@ def list_boards(user: User = Depends(get_current_user)) -> ...:
     ...
 ```
 
+## Cards and checklists
+
+Every route below needs `Authorization: Bearer <token>` and is only visible to
+members of the card's board (the owner or anyone with a `board_members` row).
+A card or item on a board the caller does not belong to returns `404`, the
+same as an id that does not exist.
+
+| Method | Path | Body | Result |
+|---|---|---|---|
+| `GET` | `/cards/{card_id}` | — | card fields plus `checklist_items` ordered by `position` |
+| `GET` | `/cards/{card_id}/checklist` | — | the card's items ordered by `position` |
+| `POST` | `/cards/{card_id}/checklist` | `{"content": "..."}` | `201`, new item appended at the end |
+| `PATCH` | `/checklist/{item_id}` | any of `content`, `completed`, `position` | the updated item |
+| `DELETE` | `/checklist/{item_id}` | — | `204`, remaining items renumbered |
+
+Checklists are flat (no nesting). `content` is trimmed and must be 1–500
+characters. `position` is 0-based and kept contiguous per card: moving an
+item to index `n` shifts the others, and a `position` past the end is a
+`422`. A `PATCH` with no fields is also a `422`.
+
+```sh
+curl -s http://127.0.0.1:8000/cards/1/checklist -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" -d '{"content": "Write the test"}'
+# {"id":1,"card_id":1,"content":"Write the test","completed":false,"position":0}
+
+curl -s -X PATCH http://127.0.0.1:8000/checklist/1 -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" -d '{"completed": true, "position": 0}'
+# {"id":1,"card_id":1,"content":"Write the test","completed":true,"position":0}
+```
+
 ## Database
 
 The app uses SQLite through SQLAlchemy. The location comes from the
