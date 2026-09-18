@@ -179,6 +179,35 @@ def list_boards(user: User = Depends(get_current_user)) -> ...:
     ...
 ```
 
+## Boards and columns
+
+Every route needs `Authorization: Bearer <token>`. A board is visible to its
+owner and to users with a `board_members` row; anyone else gets `404` (ids
+are not enumerable). A member who is not the owner gets `403` on owner-only
+actions.
+
+| Method | Path | Body | Result |
+|---|---|---|---|
+| `GET` | `/boards` | — | the caller's boards, oldest first, each with `role` (`owner`/`member`) |
+| `POST` | `/boards` | `{"name": "..."}` | `201`; also creates the owner membership and the columns "To Do", "In Progress", "Done" |
+| `GET` | `/boards/{board_id}` | — | the board plus `columns` ordered by `position` |
+| `PATCH` | `/boards/{board_id}` | `{"name": "..."}` | rename (any member) |
+| `DELETE` | `/boards/{board_id}` | — | `204` (owner only); members, columns, cards, labels cascade |
+| `POST` | `/boards/{board_id}/columns` | `{"name": "..."}` | `201`, appended at the end |
+| `PATCH` | `/columns/{column_id}` | `name` and/or `position` | the updated column |
+| `DELETE` | `/columns/{column_id}` | — | `204`; `409` if the column still holds cards |
+
+Names are trimmed and must be 1–100 characters. Column `position` is 0-based
+and kept contiguous per board; a `position` past the end is `422`. Deleting a
+column with cards is refused (`409`) rather than moving the cards — see the
+docstring in `app/routers/columns.py`.
+
+```sh
+curl -s http://127.0.0.1:8000/boards -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" -d '{"name": "Roadmap"}'
+# {"id":1,"name":"Roadmap","owner_id":1,"role":"owner","created_at":"...Z","updated_at":"...Z","columns":[{"id":1,"board_id":1,"name":"To Do","position":0,"created_at":"...Z"},...]}
+```
+
 ## Cards and checklists
 
 Every route below needs `Authorization: Bearer <token>` and is only visible to

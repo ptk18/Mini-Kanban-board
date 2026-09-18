@@ -42,3 +42,35 @@ def get_card_for_member(
     if card is None or not is_board_member(db, card.board_id, user.id):
         raise _card_not_found()
     return card
+
+
+def _board_not_found() -> HTTPException:
+    return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Board not found")
+
+
+def get_board_for_member(
+    board_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> Board:
+    """The board at ``board_id`` if the caller belongs to it, else 404."""
+    board = db.get(Board, board_id)
+    if board is None or not is_board_member(db, board.id, user.id):
+        raise _board_not_found()
+    return board
+
+
+def get_board_for_owner(
+    board: Board = Depends(get_board_for_member),
+    user: User = Depends(get_current_user),
+) -> Board:
+    """Like ``get_board_for_member`` but 403 for a member who is not the owner."""
+    if board.owner_id != user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Only the board owner can do this"
+        )
+    return board
+
+
+def role_on(board: Board, user_id: int) -> str:
+    return "owner" if board.owner_id == user_id else "member"
