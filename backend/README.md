@@ -208,6 +208,24 @@ curl -s http://127.0.0.1:8000/boards -H "Authorization: Bearer $TOKEN" \
 # {"id":1,"name":"Roadmap","owner_id":1,"role":"owner","created_at":"...Z","updated_at":"...Z","columns":[{"id":1,"board_id":1,"name":"To Do","position":0,"created_at":"...Z"},...]}
 ```
 
+## Members and invites
+
+| Method | Path | Who | Body | Result |
+|---|---|---|---|---|
+| `POST` | `/boards/{board_id}/invite` | owner | — | `{"board_id", "invite_token", "invite_path"}`; generated on first call, permanent afterwards |
+| `POST` | `/invite/{token}/join` | any signed-in user | — | joins as `member`; `{"board", "joined"}`, `joined: false` when already a member; `404` for an unknown token |
+| `GET` | `/boards/{board_id}/members` | member | — | owner first, then members in joining order, each with `email` and `display_name` |
+| `POST` | `/boards/{board_id}/members` | owner | `{"email": "..."}` | adds an existing user directly: `201` when added, `200` when already a member, `404` for an unknown email |
+| `DELETE` | `/boards/{board_id}/members/{user_id}` | owner | — | `204`; `409` for the owner; cards on the board assigned to that user are unassigned |
+
+The invite link is permanent — there is no regeneration or revocation in
+the MVP. `invite_path` is the frontend route (`/invite/<token>`) the link
+should point at.
+
+> **Schema change (issue #11):** `boards.invite_token` was added. `create_all`
+> does not alter existing tables, so delete any local `mini_kanban.db`
+> created before this change and restart the server.
+
 ## Cards and labels
 
 Same access rule as boards: members only, `404` otherwise.
