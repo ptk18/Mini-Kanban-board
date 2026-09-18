@@ -352,8 +352,25 @@ written** — to apply a suggestion the client sends a normal
 | `prioritize` | `{"text", "priority"}` — `low`, `medium` or `high` |
 | `estimate` | `{"text", "size", "time_estimate"}` — `Small`/`Medium`/`Large` and e.g. `"2 hours"` |
 | `summarize` | `{"text"}` |
+| `breakdown` | `{"text", "tasks": [{"title", "description"}, ...]}` — proposed child tasks |
 
-`text` is the model's natural-language explanation. Errors: `503` when
+`text` is the model's natural-language explanation.
+
+**Applying a breakdown** is the one AI route that writes:
+`POST /ai/card/{card_id}/breakdown/apply` with `{"tasks": [{"title", "description"}, ...]}`
+(the list as the user edited it, 1–20 items) creates the children with
+`parent_card_id` set, in the parent's column, appended in order, and
+returns them (`201`). It never calls the model, so it also works without
+`GEMINI_API_KEY`.
+
+**Natural-language creation:** `POST /ai/create-task` with
+`{"board_id": 1, "text": "Fix the login redirect, urgent, by Friday"}` returns
+`{"text", "title", "description", "priority", "due_date"}` — a proposal
+shaped like a card body without `column_id`. Nothing is saved; after the
+user approves, the client posts it (plus the chosen `column_id`) to
+`POST /boards/{board_id}/cards`. There is deliberately no
+`create-task/apply`. Relative deadlines are resolved against today's UTC
+date, which the prompt includes. Errors: `503` when
 `GEMINI_API_KEY` is unset, `502` when Gemini cannot be reached or replies
 with something that does not fit the shape above.
 

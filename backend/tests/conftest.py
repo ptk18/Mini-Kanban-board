@@ -14,6 +14,7 @@ from fastapi.testclient import TestClient  # noqa: E402
 from sqlalchemy.orm import Session  # noqa: E402
 
 import app.models  # noqa: E402, F401  # registers every table on Base.metadata
+import app.services.ai  # noqa: E402
 import app.services.auth  # noqa: E402
 from app.database import Base, get_db, make_engine  # noqa: E402
 from app.main import app as fastapi_app  # noqa: E402
@@ -44,3 +45,26 @@ def fast_bcrypt(monkeypatch: pytest.MonkeyPatch) -> None:
     # Cost 12 is ~0.18 s per hash; cost 4 keeps the suite fast. One test undoes
     # this to exercise the production cost.
     monkeypatch.setattr(app.services.auth, "BCRYPT_ROUNDS", 4)
+
+
+class FakeAI:
+    """Stand-in for app.services.ai.AIClient: records prompts and replies
+    with whatever the test queued (a string, or an exception to raise)."""
+
+    def __init__(self, reply: str = "{}"):
+        self.reply = reply
+        self.prompts: list[str] = []
+
+    def generate(self, prompt: str) -> str:
+        self.prompts.append(prompt)
+        if isinstance(self.reply, Exception):
+            raise self.reply
+        return self.reply
+
+
+@pytest.fixture
+def fake_ai() -> Iterator[FakeAI]:
+    fake = FakeAI()
+    fastapi_app.dependency_overrides[app.services.ai.get_ai_client] = lambda: fake
+    yield fake
+    fastapi_app.dependency_overrides.pop(app.services.ai.get_ai_client, None)

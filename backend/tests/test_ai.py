@@ -7,7 +7,6 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 import app.services.ai as ai_module
-from app.main import app as fastapi_app
 from app.models import BoardMember, Card, User
 from app.services.ai import AIError, GeminiClient, extract_text, get_ai_client, parse_json_reply
 from app.services.auth import create_access_token
@@ -19,20 +18,6 @@ REPLIES = {
     "estimate": {"text": "Two files.", "size": "Small", "time_estimate": "2 hours"},
     "summarize": {"text": "Login sends users to the wrong page."},
 }
-
-
-class FakeAI:
-    """Records prompts and replies with whatever the test queued."""
-
-    def __init__(self, reply: str = "{}"):
-        self.reply = reply
-        self.prompts: list[str] = []
-
-    def generate(self, prompt: str) -> str:
-        self.prompts.append(prompt)
-        if isinstance(self.reply, Exception):
-            raise self.reply
-        return self.reply
 
 
 def make_user(session: Session, email: str) -> User:
@@ -69,14 +54,6 @@ def card(client: TestClient, session: Session, owner: User) -> Card:
     }
     card_id = client.post(f"/boards/{board['id']}/cards", json=body, headers=headers(owner)).json()["id"]
     return session.get(Card, card_id)
-
-
-@pytest.fixture
-def fake_ai():
-    fake = FakeAI()
-    fastapi_app.dependency_overrides[get_ai_client] = lambda: fake
-    yield fake
-    fastapi_app.dependency_overrides.pop(get_ai_client, None)
 
 
 @pytest.fixture
