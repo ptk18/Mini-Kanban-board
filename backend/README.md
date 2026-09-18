@@ -209,6 +209,27 @@ curl -s -X PATCH http://127.0.0.1:8000/checklist/1 -H "Authorization: Bearer $TO
 # {"id":1,"card_id":1,"content":"Write the test","completed":true,"position":0}
 ```
 
+## Comments
+
+Same access rule as checklists: every route needs a bearer token and the
+caller must belong to the card's board (`404` otherwise).
+
+| Method | Path | Body | Result |
+|---|---|---|---|
+| `GET` | `/cards/{card_id}/comments` | — | comments oldest first, each with `author.id` and `author.display_name` |
+| `POST` | `/cards/{card_id}/comments` | `{"content": "..."}` | `201`, the new comment |
+| `PATCH` | `/comments/{comment_id}` | `{"content": "..."}` | the updated comment (`updated_at` moves) |
+| `DELETE` | `/comments/{comment_id}` | — | `204` |
+
+Only the author may `PATCH` or `DELETE` a comment: another member of the
+board gets `403`. `content` is trimmed and must be 1–5000 characters.
+
+```sh
+curl -s http://127.0.0.1:8000/cards/1/comments -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" -d '{"content": "Looks good to me"}'
+# {"id":1,"card_id":1,"author":{"id":1,"display_name":"Ada"},"content":"Looks good to me","created_at":"2026-09-17T10:15:30.123456Z","updated_at":"2026-09-17T10:15:30.123456Z"}
+```
+
 ## Database
 
 The app uses SQLite through SQLAlchemy. The location comes from the

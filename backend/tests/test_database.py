@@ -98,6 +98,8 @@ def test_only_expected_routes_are_exposed():
         "/cards/{card_id}": {"get"},
         "/cards/{card_id}/checklist": {"get", "post"},
         "/checklist/{item_id}": {"patch", "delete"},
+        "/cards/{card_id}/comments": {"get", "post"},
+        "/comments/{comment_id}": {"patch", "delete"},
     }
 
 
