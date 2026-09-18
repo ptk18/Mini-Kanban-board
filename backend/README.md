@@ -58,6 +58,8 @@ The interactive OpenAPI UI is at `http://127.0.0.1:8000/docs`. Its
 |---|---|---|
 | `JWT_SECRET` | yes, for the server | HS256 signing secret for access tokens. No default; at least 32 characters. The server refuses to start without it (see above). The test suite sets its own value in `tests/conftest.py`, so it is not needed for `uv run pytest`. Changing it invalidates every token issued before — that is the only way to log everyone out. |
 | `DATABASE_URL` | no | SQLAlchemy URL of the database, see [Database](#database). |
+| `GEMINI_API_KEY` | only for the AI routes | Google Gemini API key. Without it every `/ai/...` route answers `503` and everything else keeps working. |
+| `GEMINI_MODEL` | no | Gemini model name, default `gemini-2.5-flash`. |
 
 Generate a secret:
 
@@ -335,6 +337,29 @@ curl -s http://127.0.0.1:8000/cards/1/comments -H "Authorization: Bearer $TOKEN"
   -H "Content-Type: application/json" -d '{"content": "Looks good to me"}'
 # {"id":1,"card_id":1,"author":{"id":1,"display_name":"Ada"},"content":"Looks good to me","created_at":"2026-09-17T10:15:30.123456Z","updated_at":"2026-09-17T10:15:30.123456Z"}
 ```
+
+## AI card actions
+
+`POST /ai/card/{card_id}/improve`, `.../prioritize`, `.../estimate` and
+`.../summarize` (members only) ask Gemini about **that card's fields only**
+(title, description, priority, due date) and return a preview. **Nothing is
+written** — to apply a suggestion the client sends a normal
+`PATCH /cards/{card_id}` after the user approves.
+
+| Action | Response |
+|---|---|
+| `improve` | `{"text", "title", "description"}` — a rewritten title and description |
+| `prioritize` | `{"text", "priority"}` — `low`, `medium` or `high` |
+| `estimate` | `{"text", "size", "time_estimate"}` — `Small`/`Medium`/`Large` and e.g. `"2 hours"` |
+| `summarize` | `{"text"}` |
+
+`text` is the model's natural-language explanation. Errors: `503` when
+`GEMINI_API_KEY` is unset, `502` when Gemini cannot be reached or replies
+with something that does not fit the shape above.
+
+The client lives in `app/services/ai.py` behind a one-method `AIClient`
+interface; tests override the `get_ai_client` dependency with a fake and
+never call the network.
 
 ## Database
 

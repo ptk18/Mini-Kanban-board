@@ -6,6 +6,7 @@ from fastapi import FastAPI
 import app.models  # noqa: F401  # registers every table on Base.metadata before create_all
 from app.database import create_all
 from app.routers import (
+    ai,
     auth,
     boards,
     cards,
@@ -34,6 +35,7 @@ app.include_router(columns.router)
 app.include_router(labels.router)
 app.include_router(members.router)
 app.include_router(dashboard.router)
+app.include_router(ai.router)
 app.include_router(cards.router)
 app.include_router(checklist.router)
 app.include_router(comments.router)
