@@ -8,13 +8,13 @@ card and renumbers both columns. Deleting a card detaches its children
 (``parent_card_id`` SET NULL) and cascades its checklist and comments.
 """
 
-from fastapi import APIRouter, Depends, Response, status
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, Query, Response, status
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.database import get_db
 from app.models import Board, Card, Column
-from app.schemas.card import CardCreate, CardOut, CardUpdate
+from app.schemas.card import CardCreate, CardOut, CardUpdate, Priority
 from app.services.access import get_board_for_member, get_card_for_member
 from app.services.cards import (
     check_assignee,
@@ -29,19 +29,45 @@ from app.services.ordering import renumber
 router = APIRouter(tags=["cards"])
 
 
+def _escape_like(value: str) -> str:
+    # ``%`` and ``_`` are LIKE wildcards; the user typed them literally.
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
 @router.get("/boards/{board_id}/cards", response_model=list[CardOut])
 def list_cards(
-    board: Board = Depends(get_board_for_member), db: Session = Depends(get_db)
+    board: Board = Depends(get_board_for_member),
+    db: Session = Depends(get_db),
+    q: str | None = Query(default=None, description="Case-insensitive match on title or description"),
+    column_id: int | None = None,
+    priority: Priority | None = None,
+    assignee_id: int | None = None,
 ) -> list[Card]:
-    return list(
-        db.scalars(
-            select(Card)
-            .join(Column, Card.column_id == Column.id)
-            .where(Card.board_id == board.id)
-            .options(selectinload(Card.labels), selectinload(Card.checklist_items))
-            .order_by(Column.position, Card.position, Card.id)
-        )
+    """Every card on the board, optionally filtered (issue #14). Filters
+    combine with AND; a blank ``q`` is ignored. No label or due-date
+    filters."""
+    query = (
+        select(Card)
+        .join(Column, Card.column_id == Column.id)
+        .where(Card.board_id == board.id)
+        .options(selectinload(Card.labels), selectinload(Card.checklist_items))
+        .order_by(Column.position, Card.position, Card.id)
     )
+    if q is not None and q.strip():
+        pattern = f"%{_escape_like(q.strip())}%"
+        query = query.where(
+            or_(
+                Card.title.ilike(pattern, escape="\\"),
+                Card.description.ilike(pattern, escape="\\"),
+            )
+        )
+    if column_id is not None:
+        query = query.where(Card.column_id == column_id)
+    if priority is not None:
+        query = query.where(Card.priority == priority)
+    if assignee_id is not None:
+        query = query.where(Card.assignee_id == assignee_id)
+    return list(db.scalars(query))
 
 
 @router.post(

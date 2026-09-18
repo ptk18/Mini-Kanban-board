@@ -253,7 +253,7 @@ Same access rule as boards: members only, `404` otherwise.
 
 | Method | Path | Body | Result |
 |---|---|---|---|
-| `GET` | `/boards/{board_id}/cards` | — | every card on the board, ordered by column position then card position |
+| `GET` | `/boards/{board_id}/cards` | query: `q`, `column_id`, `priority`, `assignee_id` | the board's cards, ordered by column position then card position; filters combine with AND |
 | `POST` | `/boards/{board_id}/cards` | `title`, `column_id`; optional `description`, `priority`, `due_date`, `assignee_id`, `parent_card_id`, `label_ids`, `position` | `201` |
 | `GET` | `/cards/{card_id}` | — | the card with `labels` and `checklist_items` |
 | `PATCH` | `/cards/{card_id}` | any of the fields above | the updated card |
@@ -263,6 +263,11 @@ Same access rule as boards: members only, `404` otherwise.
 | `PATCH` | `/labels/{label_id}` | `{"name": "..."}` | the renamed label |
 | `DELETE` | `/labels/{label_id}` | — | `204`; the label is removed from every card |
 
+- **Search and filter** (`GET /boards/{board_id}/cards`): `q` is a
+  case-insensitive substring match on title *or* description (`%` and `_`
+  are matched literally; a blank `q` is ignored); `column_id`, `priority`
+  and `assignee_id` match exactly. All given filters must hold. There are
+  no label or due-date filters and no saved filters.
 - `priority` is `low`, `medium` (default) or `high`. `due_date` is ISO 8601;
   an offset is converted to UTC, no offset is taken as UTC.
 - `column_id`, `assignee_id` (must be a board member), `parent_card_id`
