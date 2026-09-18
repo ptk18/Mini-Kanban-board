@@ -286,3 +286,55 @@ export type Dashboard = {
 export function getDashboard(boardId: number) {
   return request<Dashboard>(`/boards/${boardId}/dashboard`);
 }
+
+export function getCard(id: number) {
+  return request<Card>(`/cards/${id}`);
+}
+
+export function createLabel(boardId: number, name: string) {
+  return request<Label>(`/boards/${boardId}/labels`, "POST", { name });
+}
+
+// --- checklist ----------------------------------------------------------------
+
+export function createChecklistItem(cardId: number, content: string) {
+  return request<ChecklistItem>(`/cards/${cardId}/checklist`, "POST", { content });
+}
+
+export function updateChecklistItem(
+  id: number,
+  body: { content?: string; completed?: boolean; position?: number },
+) {
+  return request<ChecklistItem>(`/checklist/${id}`, "PATCH", body);
+}
+
+export function deleteChecklistItem(id: number) {
+  return request<void>(`/checklist/${id}`, "DELETE");
+}
+
+// --- comments -----------------------------------------------------------------
+
+export type Comment = {
+  id: number;
+  card_id: number;
+  author: { id: number; display_name: string };
+  content: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export function listComments(cardId: number) {
+  return request<Comment[]>(`/cards/${cardId}/comments`);
+}
+
+export function createComment(cardId: number, content: string) {
+  return request<Comment>(`/cards/${cardId}/comments`, "POST", { content });
+}
+
+export function updateComment(id: number, content: string) {
+  return request<Comment>(`/comments/${id}`, "PATCH", { content });
+}
+
+export function deleteComment(id: number) {
+  return request<void>(`/comments/${id}`, "DELETE");
+}

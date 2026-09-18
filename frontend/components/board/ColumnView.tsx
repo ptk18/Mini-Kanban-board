@@ -25,6 +25,7 @@ export function ColumnView({
   onDelete,
   onAddCard,
   onMoveCard,
+  onOpenCard,
 }: {
   column: Column;
   columns: Column[];
@@ -34,6 +35,7 @@ export function ColumnView({
   onDelete: () => Promise<void>;
   onAddCard: (title: string) => Promise<void>;
   onMoveCard: (card: Card, columnId: number) => void;
+  onOpenCard: (card: Card) => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(column.name);
@@ -170,6 +172,7 @@ export function ColumnView({
               columns={columns}
               members={members}
               onMove={(columnId) => onMoveCard(card, columnId)}
+              onOpen={() => onOpenCard(card)}
             />
           ))}
         </ul>

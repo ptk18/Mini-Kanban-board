@@ -22,12 +22,14 @@ import { AddColumnForm } from "@/components/board/AddColumnForm";
 import { BoardToolbar } from "@/components/board/BoardToolbar";
 import { ColumnView } from "@/components/board/ColumnView";
 import { MembersPanel } from "@/components/board/MembersPanel";
+import { CardModal } from "@/components/card/CardModal";
 import { ErrorText, SecondaryButton } from "@/components/ui";
 
 export function BoardView({ boardId }: { boardId: number }) {
   const { user } = useAuth();
   const [filters, setFilters] = useState<CardFilters>({});
   const [showMembers, setShowMembers] = useState(false);
+  const [openCardId, setOpenCardId] = useState<number | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   // Drag-and-drop shows the new order immediately; cleared once the server
   // confirms (refetch) or when the request fails (rollback).
@@ -135,6 +137,7 @@ export function BoardView({ boardId }: { boardId: number }) {
                   onDelete={() => remove(column)}
                   onAddCard={(title) => addCard(column, title)}
                   onMoveCard={moveCard}
+                  onOpenCard={(card) => setOpenCardId(card.id)}
                 />
               ))}
             </SortableContext>
@@ -145,6 +148,16 @@ export function BoardView({ boardId }: { boardId: number }) {
           <MembersPanel boardId={boardId} members={members} isOwner={isOwner} onChange={refetch} />
         )}
       </div>
+      {openCardId !== null && (
+        <CardModal
+          cardId={openCardId}
+          columns={columns}
+          members={members}
+          cards={cards}
+          onClose={() => setOpenCardId(null)}
+          onChanged={refetch}
+        />
+      )}
       {user && !isOwner && (
         <p className="text-xs text-zinc-500">You are a member of this board; only the owner manages members.</p>
       )}

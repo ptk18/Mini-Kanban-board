@@ -22,11 +22,13 @@ export function CardItem({
   columns,
   members,
   onMove,
+  onOpen,
 }: {
   card: Card;
   columns: Column[];
   members: Member[];
   onMove: (columnId: number) => void;
+  onOpen: () => void;
 }) {
   const column = columns.find((c) => c.id === card.column_id);
   const assignee = members.find((m) => m.user_id === card.assignee_id);
@@ -45,9 +47,14 @@ export function CardItem({
       aria-roledescription="draggable card"
       className="flex cursor-grab flex-col gap-1.5 rounded-md bg-zinc-800 px-3 py-2 transition-colors hover:bg-zinc-700 active:cursor-grabbing"
     >
-      <p className="truncate text-sm font-medium text-zinc-100" title={card.title}>
+      <button
+        type="button"
+        onClick={onOpen}
+        title="Open card"
+        className="truncate text-left text-sm font-medium text-zinc-100 hover:underline"
+      >
         {card.title}
-      </p>
+      </button>
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-zinc-400">
         <span className={`font-medium ${priorityClass[card.priority]}`}>{card.priority}</span>
         {card.due_date && (

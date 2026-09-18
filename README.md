@@ -72,8 +72,7 @@ npm run dev
 
 Serves `http://localhost:3000`: sign up or log in, manage boards at `/boards`,
 work on a board at `/boards/[id]` (columns, cards, filters, members, invite
-links) and see its dashboard at `/boards/[id]/dashboard`. The card modal is
-issue #25.
+links, card modal) and see its dashboard at `/boards/[id]/dashboard`.
 
 ## Seed a demo board
 
@@ -147,11 +146,11 @@ The visual direction (dark developer tool, minimal) is in
 
 ## Screenshots
 
-_Placeholders until the remaining screens land (issue #25):_
+_Placeholders (the AI actions UI is issue #33):_
 
 - Login / Sign up (`/login`, `/signup`)
 - Board list (`/boards`)
 - Board with columns, cards, toolbar and members panel (`/boards/[id]`)
-- Card modal (fields, labels, checklist, comments, AI actions) — #25
+- Card modal (fields, labels, checklist, comments)
 - Dashboard (`/boards/[id]/dashboard`)
 - Invite flow (`/invite/[token]`)
