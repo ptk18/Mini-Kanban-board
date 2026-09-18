@@ -5,8 +5,10 @@ import { AuthProvider } from "@/lib/auth";
 import { ApiError } from "@/lib/api";
 
 const push = vi.fn();
+const searchParams = vi.hoisted(() => ({ next: null as string | null }));
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push, replace: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(searchParams.next ? { next: searchParams.next } : {}),
 }));
 
 const api = vi.hoisted(() => ({
@@ -38,6 +40,7 @@ function fill(email: string, password: string) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  searchParams.next = null;
 });
 
 describe("LoginForm validation", () => {
@@ -98,5 +101,29 @@ describe("LoginForm submit", () => {
     fireEvent.click(screen.getByRole("button", { name: "Log in" }));
 
     expect(await screen.findByText("Could not reach the server")).toBeDefined();
+  });
+});
+
+describe("LoginForm ?next=", () => {
+  test("an in-app next path is followed after login", async () => {
+    searchParams.next = "/invite/abc123";
+    api.login.mockResolvedValue({ access_token: "jwt", token_type: "bearer", user: USER });
+    renderForm();
+    fill("ada@example.com", "correct horse");
+
+    fireEvent.click(screen.getByRole("button", { name: "Log in" }));
+
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/invite/abc123"));
+  });
+
+  test("an off-site next value is ignored", async () => {
+    searchParams.next = "//evil.example/phish";
+    api.login.mockResolvedValue({ access_token: "jwt", token_type: "bearer", user: USER });
+    renderForm();
+    fill("ada@example.com", "correct horse");
+
+    fireEvent.click(screen.getByRole("button", { name: "Log in" }));
+
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/boards"));
   });
 });

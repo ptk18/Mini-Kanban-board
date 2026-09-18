@@ -1,8 +1,9 @@
 # Mini Kanban — frontend
 
 Next.js (App Router) + TypeScript + Tailwind CSS frontend for the Mini Kanban
-board: sign up, log in, log out, and the board list. The board screen itself
-is issue #23.
+board: auth, the board list, the board screen (columns, cards, column
+management, search and filters, members and invites) and the dashboard. The
+card modal is issue #25.
 
 All commands below are run from `frontend/`.
 
@@ -35,9 +36,20 @@ npm run dev
 Open `http://localhost:3000`. `/signup` creates an account and logs you in;
 `/login` for an existing one (the seed accounts from `backend/scripts/seed.py`
 work). `/boards` lists your boards — create, rename inline (Enter saves,
-Escape cancels), delete with confirmation (owner only) — and is guarded:
-without a valid token it redirects to `/login`. **Log out** in the header
-discards the token.
+Escape cancels), delete with confirmation (owner only). `/boards/[id]` is the
+board: columns of compact cards (title, priority, due date — red when
+overdue and not in Done — labels, assignee), an **Add card** input per
+column, a status dropdown on each card to move it, **Add column** at the
+end, click a column header to rename it, **Delete** with a confirmation that
+explains the cards must be moved first. The toolbar searches (`q`) and
+filters by column, priority and assignee (AND), with an active-filter count
+and **Clear**. **Members** opens the panel (owner: copy invite link, invite
+by email, remove); **Dashboard** links to `/boards/[id]/dashboard`. An
+invite link (`/invite/[token]`) joins the board and redirects to it,
+sending signed-out users to `/login?next=…` first. There are no live
+updates: the board refetches after each mutation and when the tab regains
+focus. Guarded pages redirect to `/login` without a valid token; **Log out**
+in the header discards the token.
 
 ## Tests
 
@@ -82,12 +94,14 @@ watch mode).
 - `app/layout.tsx` — root layout, dark theme (`bg-zinc-950` / `text-zinc-100`), wraps everything in `AuthProvider`
 - `app/page.tsx` — landing page (`/`) with links
 - `app/login/`, `app/signup/` — auth pages
-- `app/boards/page.tsx` — board list (guarded); `app/boards/[id]/page.tsx` — placeholder board screen (#23)
-- `lib/api.ts` — typed API client: `signup`, `login`, `me`, `listBoards`, `createBoard`, `getBoard`, `renameBoard`, `deleteBoard`; token in `localStorage` (`mini-kanban.token`); non-2xx → `ApiError { status, detail }`
+- `app/boards/page.tsx` — board list (guarded); `app/boards/[id]/page.tsx` — board; `app/boards/[id]/dashboard/page.tsx` — dashboard; `app/invite/[token]/page.tsx` — join by invite link
+- `lib/api.ts` — typed API client for auth, boards, columns, cards (`buildCardQuery` for the filters), labels, members/invites and the dashboard; token in `localStorage` (`mini-kanban.token`); non-2xx → `ApiError { status, detail }`
+- `hooks/useBoardData.ts` — board + filtered cards + members with `refetch()`, refetching on window focus / visibility
+- `components/board/` — `BoardView`, `BoardToolbar`, `ColumnView`, `CardItem`, `AddColumnForm`, `MembersPanel`, `DashboardView`; `components/InviteJoin.tsx`
 - `lib/auth.tsx` — `AuthProvider` / `useAuth()`: restores the session from the stored token on load (any `401` clears it), `login`, `signup`, `logout`
 - `lib/validation.ts` — client-side mirrors of the backend's email/password/display-name rules
 - `components/RequireAuth.tsx` — route guard (redirects to `/login`); `AppHeader.tsx` — brand link, user name, log out
 - `components/LoginForm.tsx`, `SignupForm.tsx`, `BoardList.tsx`, `Field.tsx`, `ui.tsx`
 - `app/globals.css` — Tailwind import and `color-scheme: dark`
-- `tests/` — Vitest tests: `page.test.tsx`, `login-form.test.tsx`, `board-list.test.tsx`; `setup.ts` registers Testing Library cleanup
+- `tests/` — Vitest tests: `page`, `login-form`, `board-list`, `board-view`, `board-toolbar`, `dashboard`, `invite` (`fixtures.ts` shared data; `setup.ts` registers Testing Library cleanup)
 - `vitest.config.mts` — Vitest config; `@/*` resolves to `./*` via `vite-tsconfig-paths`

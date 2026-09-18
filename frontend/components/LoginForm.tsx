@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ApiError } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { validateEmail, validatePassword } from "@/lib/validation";
@@ -11,6 +11,9 @@ import { ErrorText, PrimaryButton } from "@/components/ui";
 export function LoginForm() {
   const { login } = useAuth();
   const router = useRouter();
+  const next = useSearchParams().get("next");
+  // Only follow in-app paths so a crafted link cannot send users elsewhere.
+  const destination = next && next.startsWith("/") && !next.startsWith("//") ? next : "/boards";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [errors, setErrors] = useState<{ email?: string; password?: string; form?: string }>({});
@@ -28,7 +31,7 @@ export function LoginForm() {
     setSubmitting(true);
     try {
       await login(email, password);
-      router.push("/boards");
+      router.push(destination);
     } catch (error) {
       setErrors({
         form: error instanceof ApiError ? error.detail : "Could not reach the server",

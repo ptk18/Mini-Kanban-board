@@ -70,9 +70,10 @@ npm ci
 npm run dev
 ```
 
-Serves `http://localhost:3000`: sign up or log in, then manage boards at
-`/boards`. The board screen itself (`/boards/[id]`) is a placeholder until
-issue #23.
+Serves `http://localhost:3000`: sign up or log in, manage boards at `/boards`,
+work on a board at `/boards/[id]` (columns, cards, filters, members, invite
+links) and see its dashboard at `/boards/[id]/dashboard`. The card modal is
+issue #25.
 
 ## Seed a demo board
 
@@ -146,11 +147,11 @@ The visual direction (dark developer tool, minimal) is in
 
 ## Screenshots
 
-_Placeholders until the remaining screens land (issues #23–#25):_
+_Placeholders until the remaining screens land (issue #25):_
 
 - Login / Sign up (`/login`, `/signup`)
 - Board list (`/boards`)
-- Board with columns and cards
-- Card modal (fields, labels, checklist, comments, AI actions)
-- Dashboard
-- Invite flow
+- Board with columns, cards, toolbar and members panel (`/boards/[id]`)
+- Card modal (fields, labels, checklist, comments, AI actions) — #25
+- Dashboard (`/boards/[id]/dashboard`)
+- Invite flow (`/invite/[token]`)
