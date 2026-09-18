@@ -208,16 +208,49 @@ curl -s http://127.0.0.1:8000/boards -H "Authorization: Bearer $TOKEN" \
 # {"id":1,"name":"Roadmap","owner_id":1,"role":"owner","created_at":"...Z","updated_at":"...Z","columns":[{"id":1,"board_id":1,"name":"To Do","position":0,"created_at":"...Z"},...]}
 ```
 
-## Cards and checklists
+## Cards and labels
 
-Every route below needs `Authorization: Bearer <token>` and is only visible to
-members of the card's board (the owner or anyone with a `board_members` row).
-A card or item on a board the caller does not belong to returns `404`, the
-same as an id that does not exist.
+Same access rule as boards: members only, `404` otherwise.
 
 | Method | Path | Body | Result |
 |---|---|---|---|
-| `GET` | `/cards/{card_id}` | — | card fields plus `checklist_items` ordered by `position` |
+| `GET` | `/boards/{board_id}/cards` | — | every card on the board, ordered by column position then card position |
+| `POST` | `/boards/{board_id}/cards` | `title`, `column_id`; optional `description`, `priority`, `due_date`, `assignee_id`, `parent_card_id`, `label_ids`, `position` | `201` |
+| `GET` | `/cards/{card_id}` | — | the card with `labels` and `checklist_items` |
+| `PATCH` | `/cards/{card_id}` | any of the fields above | the updated card |
+| `DELETE` | `/cards/{card_id}` | — | `204`; children are detached, checklist and comments removed |
+| `GET` | `/boards/{board_id}/labels` | — | the board's labels |
+| `POST` | `/boards/{board_id}/labels` | `{"name": "..."}` | `201`; `409` if the name exists on the board |
+| `PATCH` | `/labels/{label_id}` | `{"name": "..."}` | the renamed label |
+| `DELETE` | `/labels/{label_id}` | — | `204`; the label is removed from every card |
+
+- `priority` is `low`, `medium` (default) or `high`. `due_date` is ISO 8601;
+  an offset is converted to UTC, no offset is taken as UTC.
+- `column_id`, `assignee_id` (must be a board member), `parent_card_id`
+  (must be a card on the same board and not the card itself or one of its
+  descendants) and `label_ids` (must be the board's labels) are checked;
+  anything off the board is `422`.
+- **Moving:** `PATCH` with `column_id` moves the card to that column
+  (appended, or at `position` when given); `position` alone reorders within
+  the current column. Positions are 0-based and contiguous per column.
+- `label_ids` replaces the whole set; `[]` detaches everything.
+- Explicit `null` clears `due_date`, `assignee_id` or `parent_card_id`.
+
+```sh
+curl -s http://127.0.0.1:8000/boards/1/cards -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" -d '{"title": "Write tests", "column_id": 1, "priority": "high"}'
+
+curl -s -X PATCH http://127.0.0.1:8000/cards/1 -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" -d '{"column_id": 3, "position": 0}'
+```
+
+## Checklists
+
+Members only, `404` otherwise. The card detail (`GET /cards/{card_id}`)
+carries `checklist_items` ordered by `position`.
+
+| Method | Path | Body | Result |
+|---|---|---|---|
 | `GET` | `/cards/{card_id}/checklist` | — | the card's items ordered by `position` |
 | `POST` | `/cards/{card_id}/checklist` | `{"content": "..."}` | `201`, new item appended at the end |
 | `PATCH` | `/checklist/{item_id}` | any of `content`, `completed`, `position` | the updated item |

@@ -22,6 +22,7 @@ CARD_KEYS = {
     "position",
     "created_at",
     "updated_at",
+    "labels",
     "checklist_items",
 }
 

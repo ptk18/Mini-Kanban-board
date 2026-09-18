@@ -54,5 +54,8 @@ class Card(Base):
         back_populates="card", cascade="all, delete-orphan", passive_deletes=True
     )
     labels: Mapped[list["Label"]] = relationship(
-        secondary="card_labels", back_populates="cards", passive_deletes=True
+        secondary="card_labels",
+        back_populates="cards",
+        passive_deletes=True,
+        order_by="Label.id",
     )
