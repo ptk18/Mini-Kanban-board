@@ -338,3 +338,34 @@ export function updateComment(id: number, content: string) {
 export function deleteComment(id: number) {
   return request<void>(`/comments/${id}`, "DELETE");
 }
+
+// --- AI (previews; only breakdown/apply writes) ---------------------------------
+
+export type ProposedTask = { title: string; description: string };
+
+export type AiImprove = { text: string; title: string; description: string };
+export type AiPrioritize = { text: string; priority: Priority };
+export type AiEstimate = { text: string; size: "Small" | "Medium" | "Large"; time_estimate: string };
+export type AiSummarize = { text: string };
+export type AiBreakdown = { text: string; tasks: ProposedTask[] };
+export type ProposedCard = {
+  text: string;
+  title: string;
+  description: string;
+  priority: Priority;
+  due_date: string | null;
+};
+
+export const aiImprove = (cardId: number) => request<AiImprove>(`/ai/card/${cardId}/improve`, "POST");
+export const aiPrioritize = (cardId: number) => request<AiPrioritize>(`/ai/card/${cardId}/prioritize`, "POST");
+export const aiEstimate = (cardId: number) => request<AiEstimate>(`/ai/card/${cardId}/estimate`, "POST");
+export const aiSummarize = (cardId: number) => request<AiSummarize>(`/ai/card/${cardId}/summarize`, "POST");
+export const aiBreakdown = (cardId: number) => request<AiBreakdown>(`/ai/card/${cardId}/breakdown`, "POST");
+
+export function aiApplyBreakdown(cardId: number, tasks: ProposedTask[]) {
+  return request<Card[]>(`/ai/card/${cardId}/breakdown/apply`, "POST", { tasks });
+}
+
+export function aiCreateTask(boardId: number, text: string) {
+  return request<ProposedCard>("/ai/create-task", "POST", { board_id: boardId, text });
+}

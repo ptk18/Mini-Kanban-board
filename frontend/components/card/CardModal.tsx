@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import * as api from "@/lib/api";
-import type { Card, CardUpdate, Column, Label, Member, Priority } from "@/lib/api";
+import type { Card, CardUpdate, Column, Label, Member, Priority, ProposedCard } from "@/lib/api";
 import { describeError } from "@/hooks/useBoardData";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
+import { AiPanel } from "@/components/card/AiPanel";
 import { ChecklistSection } from "@/components/card/ChecklistSection";
 import { CommentsSection } from "@/components/card/CommentsSection";
 import { ErrorText, PrimaryButton, SecondaryButton, TextInput } from "@/components/ui";
@@ -52,57 +53,76 @@ export function diffCard(card: Card, draft: Draft): CardUpdate {
   return body;
 }
 
+/** Draft for a card that does not exist yet (natural-language creation). */
+export function draftFromProposal(proposal: ProposedCard, columnId: number): Draft {
+  return {
+    title: proposal.title,
+    description: proposal.description,
+    column_id: columnId,
+    priority: proposal.priority,
+    due_date: proposal.due_date ? proposal.due_date.slice(0, 10) : "",
+    assignee_id: null,
+    label_ids: [],
+  };
+}
+
 export function CardModal({
   cardId,
+  boardId,
+  proposal,
   columns,
   members,
   cards,
   onClose,
   onChanged,
 }: {
-  cardId: number;
+  /** null: creating a new card from `proposal` (Save POSTs to the board). */
+  cardId: number | null;
+  boardId: number;
+  proposal?: ProposedCard;
   columns: Column[];
   members: Member[];
   cards: Card[];
   onClose: () => void;
   onChanged: () => Promise<void>;
 }) {
+  const creating = cardId === null;
   const dialogRef = useRef<HTMLDivElement>(null);
   const titleRef = useRef<HTMLInputElement>(null);
   const [card, setCard] = useState<Card | null>(null);
   const [labels, setLabels] = useState<Label[]>([]);
-  const [draft, setDraft] = useState<Draft | null>(null);
+  const [draft, setDraft] = useState<Draft | null>(() =>
+    cardId === null && proposal ? draftFromProposal(proposal, columns[0]?.id ?? 0) : null,
+  );
   const [newLabel, setNewLabel] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   const fail = useCallback((e: unknown) => setError(describeError(e)), []);
 
-  const reload = useCallback(
-    () =>
-      api
-        .getCard(cardId)
-        .then((next) => {
-          setCard(next);
-          setDraft((current) => current ?? toDraft(next));
-        })
-        .catch(fail),
-    [cardId, fail],
-  );
+  const reload = useCallback(() => {
+    if (cardId === null) return Promise.resolve();
+    return api
+      .getCard(cardId)
+      .then((next) => {
+        setCard(next);
+        setDraft((current) => current ?? toDraft(next));
+      })
+      .catch(fail);
+  }, [cardId, fail]);
 
   useEffect(() => {
     void reload();
   }, [reload]);
 
   useEffect(() => {
-    if (!card) return;
-    api.listLabels(card.board_id).then(setLabels).catch(fail);
-  }, [card?.board_id, card, fail]);
+    api.listLabels(boardId).then(setLabels).catch(fail);
+  }, [boardId, fail]);
 
   useFocusTrap(dialogRef, onClose);
 
   // The form mounts after the card loads; move focus from Close to the title.
-  const loaded = card !== null;
+  const loaded = draft !== null;
   useEffect(() => {
     if (loaded) titleRef.current?.focus();
   }, [loaded]);
@@ -111,11 +131,33 @@ export function CardModal({
 
   async function handleSave(event: FormEvent) {
     event.preventDefault();
-    if (!card || !draft) return;
+    if (!draft) return;
     if (!draft.title.trim()) {
       setError("Title is required");
       return;
     }
+    if (creating) {
+      setSaving(true);
+      try {
+        await api.createCard(boardId, {
+          title: draft.title.trim(),
+          description: draft.description,
+          column_id: draft.column_id,
+          priority: draft.priority,
+          due_date: draft.due_date ? `${draft.due_date}T00:00:00Z` : null,
+          assignee_id: draft.assignee_id,
+          label_ids: draft.label_ids,
+        });
+        await onChanged();
+        onClose();
+      } catch (e) {
+        fail(e);
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
+    if (!card) return;
     const body = diffCard(card, draft);
     if (Object.keys(body).length === 0) {
       onClose();
@@ -148,11 +190,11 @@ export function CardModal({
   }
 
   async function handleNewLabel() {
-    if (!card || !draft) return;
+    if (!draft) return;
     const name = newLabel.trim();
     if (!name) return;
     try {
-      const label = await api.createLabel(card.board_id, name);
+      const label = await api.createLabel(boardId, name);
       setLabels((current) => [...current, label]);
       setDraft({ ...draft, label_ids: [...draft.label_ids, label.id] });
       setNewLabel("");
@@ -181,7 +223,7 @@ export function CardModal({
       >
         <div className="flex items-center gap-3">
           <h2 id="card-modal-title" className="text-lg font-semibold">
-            {card ? card.title : "Loading…"}
+            {creating ? "New card" : card ? card.title : "Loading…"}
           </h2>
           <SecondaryButton onClick={onClose} aria-label="Close" className="ml-auto">
             Close
@@ -189,8 +231,11 @@ export function CardModal({
         </div>
         {error && <ErrorText>{error}</ErrorText>}
 
-        {card && draft && (
+        {draft && (
           <>
+            {creating && proposal && (
+              <p className="text-sm text-zinc-400">{proposal.text}</p>
+            )}
             <form onSubmit={handleSave} className="flex flex-col gap-4">
               {parent && (
                 <p className="text-xs text-zinc-400">
@@ -307,16 +352,27 @@ export function CardModal({
               </fieldset>
               <div className="flex gap-2">
                 <PrimaryButton type="submit" disabled={saving}>
-                  {saving ? "Saving…" : "Save"}
+                  {saving ? "Saving…" : creating ? "Create card" : "Save"}
                 </PrimaryButton>
-                <SecondaryButton onClick={handleDelete} className="ml-auto text-red-400">
-                  Delete card
-                </SecondaryButton>
+                {creating ? (
+                  <SecondaryButton onClick={onClose} className="ml-auto">
+                    Discard
+                  </SecondaryButton>
+                ) : (
+                  <SecondaryButton onClick={handleDelete} className="ml-auto text-red-400">
+                    Delete card
+                  </SecondaryButton>
+                )}
               </div>
             </form>
 
-            <ChecklistSection cardId={card.id} items={card.checklist_items} onChanged={changed} onError={fail} />
-            <CommentsSection cardId={card.id} />
+            {card && (
+              <>
+                <AiPanel card={card} onApplied={changed} />
+                <ChecklistSection cardId={card.id} items={card.checklist_items} onChanged={changed} onError={fail} />
+                <CommentsSection cardId={card.id} />
+              </>
+            )}
           </>
         )}
       </div>

@@ -53,7 +53,7 @@ const COMMENTS = [
 function renderModal(onClose = vi.fn(), onChanged = vi.fn().mockResolvedValue(undefined)) {
   render(
     <AuthProvider>
-      <CardModal cardId={100} columns={columns} members={members} cards={cards} onClose={onClose} onChanged={onChanged} />
+      <CardModal cardId={100} boardId={1} columns={columns} members={members} cards={cards} onClose={onClose} onChanged={onChanged} />
     </AuthProvider>,
   );
   return { onClose, onChanged };

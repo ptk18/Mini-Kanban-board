@@ -2,8 +2,8 @@
 
 Next.js (App Router) + TypeScript + Tailwind CSS frontend for the Mini Kanban
 board: auth, the board list, the board screen (columns, cards, column
-management, search and filters, members and invites), the card modal and
-the dashboard.
+management, search and filters, members and invites), the card modal with
+the AI actions, natural-language task creation and the dashboard.
 
 All commands below are run from `frontend/`.
 
@@ -44,8 +44,15 @@ end, drag a card to reorder it or move it to another column, drag the ⋮⋮
 handle to reorder columns (the move shows immediately and rolls back if the
 server refuses), click a card title to open the card modal — edit every field, labels
 (including creating a new one), see the parent, delete, manage the checklist
-and comments; Escape closes and focus stays inside — click a column header to
-rename it, **Delete** with a confirmation that
+and comments, and run the **AI** actions (Break down, Improve, Prioritize,
+Estimate effort, Summarize): each shows a preview you can edit and **Approve**
+(writes through the card `PATCH`, or `breakdown/apply` for child tasks) or
+**Discard** (writes nothing; Summarize is read-only; Estimate appends an
+"Estimate: …" line to the description). **New task from text** above the
+board asks `POST /ai/create-task` for a proposal and opens it in the modal;
+**Create card** then goes through the normal card `POST`. The backend needs
+`GEMINI_API_KEY` for any of this. Escape closes and focus stays inside — click
+a column header to rename it, **Delete** with a confirmation that
 explains the cards must be moved first. The toolbar searches (`q`) and
 filters by column, priority and assignee (AND), with an active-filter count
 and **Clear**. **Members** opens the panel (owner: copy invite link, invite
@@ -106,11 +113,11 @@ watch mode).
 - `components/board/dnd.ts` — dnd-kit ids and `data` payloads
 - `hooks/useBoardData.ts` — board + filtered cards + members with `refetch()`, refetching on window focus / visibility
 - `components/board/` — `BoardView`, `BoardToolbar`, `ColumnView`, `CardItem`, `AddColumnForm`, `MembersPanel`, `DashboardView`; `components/InviteJoin.tsx`
-- `components/card/` — `CardModal` (fields, labels, parent, save/delete; `diffCard` builds the PATCH body), `ChecklistSection`, `CommentsSection`; `hooks/useFocusTrap.ts` (focus trap + Escape)
+- `components/card/` — `CardModal` (fields, labels, parent, save/delete; `diffCard` builds the PATCH body; new-card mode from a proposal), `AiPanel`, `ChecklistSection`, `CommentsSection`; `components/board/NewTaskForm.tsx`; `hooks/useFocusTrap.ts` (focus trap + Escape)
 - `lib/auth.tsx` — `AuthProvider` / `useAuth()`: restores the session from the stored token on load (any `401` clears it), `login`, `signup`, `logout`
 - `lib/validation.ts` — client-side mirrors of the backend's email/password/display-name rules
 - `components/RequireAuth.tsx` — route guard (redirects to `/login`); `AppHeader.tsx` — brand link, user name, log out
 - `components/LoginForm.tsx`, `SignupForm.tsx`, `BoardList.tsx`, `Field.tsx`, `ui.tsx`
 - `app/globals.css` — Tailwind import and `color-scheme: dark`
-- `tests/` — Vitest tests: `page`, `login-form`, `board-list`, `board-view`, `board-toolbar`, `card-modal`, `dashboard`, `invite`, `positions` (`fixtures.ts` shared data; `setup.ts` registers Testing Library cleanup)
+- `tests/` — Vitest tests: `page`, `login-form`, `board-list`, `board-view`, `board-toolbar`, `card-modal`, `ai`, `dashboard`, `invite`, `positions` (`fixtures.ts` shared data; `setup.ts` registers Testing Library cleanup)
 - `vitest.config.mts` — Vitest config; `@/*` resolves to `./*` via `vite-tsconfig-paths`

@@ -13,7 +13,7 @@ import {
 } from "@dnd-kit/core";
 import { SortableContext, horizontalListSortingStrategy, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import * as api from "@/lib/api";
-import type { Card, CardFilters, Column } from "@/lib/api";
+import type { Card, CardFilters, Column, ProposedCard } from "@/lib/api";
 import { applyCardMove, applyColumnMove, computeCardDrop, computeColumnDrop } from "@/lib/positions";
 import { asDropTarget, columnDragId, dragData } from "@/components/board/dnd";
 import { useAuth } from "@/lib/auth";
@@ -22,6 +22,7 @@ import { AddColumnForm } from "@/components/board/AddColumnForm";
 import { BoardToolbar } from "@/components/board/BoardToolbar";
 import { ColumnView } from "@/components/board/ColumnView";
 import { MembersPanel } from "@/components/board/MembersPanel";
+import { NewTaskForm } from "@/components/board/NewTaskForm";
 import { CardModal } from "@/components/card/CardModal";
 import { ErrorText, SecondaryButton } from "@/components/ui";
 
@@ -30,6 +31,7 @@ export function BoardView({ boardId }: { boardId: number }) {
   const [filters, setFilters] = useState<CardFilters>({});
   const [showMembers, setShowMembers] = useState(false);
   const [openCardId, setOpenCardId] = useState<number | null>(null);
+  const [proposal, setProposal] = useState<ProposedCard | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   // Drag-and-drop shows the new order immediately; cleared once the server
   // confirms (refetch) or when the request fails (rollback).
@@ -118,6 +120,7 @@ export function BoardView({ boardId }: { boardId: number }) {
       </div>
 
       <BoardToolbar filters={filters} columns={columns} members={members} onChange={setFilters} />
+      <NewTaskForm boardId={boardId} onProposal={setProposal} />
       {actionError && <ErrorText>{actionError}</ErrorText>}
 
       <div className="flex items-start gap-4">
@@ -151,10 +154,23 @@ export function BoardView({ boardId }: { boardId: number }) {
       {openCardId !== null && (
         <CardModal
           cardId={openCardId}
+          boardId={boardId}
           columns={columns}
           members={members}
           cards={cards}
           onClose={() => setOpenCardId(null)}
+          onChanged={refetch}
+        />
+      )}
+      {proposal && (
+        <CardModal
+          cardId={null}
+          boardId={boardId}
+          proposal={proposal}
+          columns={columns}
+          members={members}
+          cards={cards}
+          onClose={() => setProposal(null)}
           onChanged={refetch}
         />
       )}
