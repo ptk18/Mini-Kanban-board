@@ -60,7 +60,18 @@ about running; that page is about writing.
 
 ## CI
 
-`.github/workflows/ci.yml` runs the unit suites, the integration suite
-(against a Postgres service container) and the browser tests on every pull
-request and push to `main`; see [`deployment.md`](deployment.md) for what
-happens after CI is green.
+`.github/workflows/ci.yml` runs four jobs on every pull request and push to
+`main`: **backend** (unit on SQLite, integration against a `postgres:17`
+service container, `alembic check`), **frontend** (lint, typecheck, Vitest),
+**docker** (both images build, layer cache in GitHub Actions), **e2e** (the
+Compose stack on the runner + Playwright; the HTML report is uploaded on
+failure). No secrets are involved.
+
+**Branch protection.** `main` should require the four checks before a merge:
+repository *Settings → Branches → Add branch ruleset* (or classic protection
+rule) for `main` → *Require status checks to pass* → select `Backend (unit +
+Postgres integration)`, `Frontend (lint, typecheck, unit)`, `Docker images
+build`, `End-to-end (Compose stack + Playwright)`. This needs admin rights on
+the repository, so it is a one-time click by the owner; with the setting on, a
+red check blocks merging. See [`release-process.md`](release-process.md) for
+what happens after CI is green.

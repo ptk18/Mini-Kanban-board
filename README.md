@@ -1,5 +1,7 @@
 # Mini Kanban
 
+[![CI](https://github.com/ptk18/Mini-Kanban-board/actions/workflows/ci.yml/badge.svg)](https://github.com/ptk18/Mini-Kanban-board/actions/workflows/ci.yml)
+
 A small Kanban board for a team: boards with columns and cards, labels,
 checklists, comments, invite links, a per-board dashboard, and Gemini-backed
 card actions that only ever *propose* changes. Runs locally: a FastAPI +
