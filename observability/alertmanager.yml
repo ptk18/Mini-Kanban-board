@@ -1,0 +1,16 @@
+# Alertmanager: every alert goes to the local on-call responder's webhook.
+# (oncall/ is issue #46; until it runs, deliveries fail harmlessly and the
+# alert is still visible in Alertmanager and Grafana.)
+
+route:
+  receiver: oncall
+  group_by: [alertname]
+  group_wait: 10s
+  group_interval: 1m
+  repeat_interval: 1h
+
+receivers:
+  - name: oncall
+    webhook_configs:
+      - url: http://oncall:9000/alert
+        send_resolved: true

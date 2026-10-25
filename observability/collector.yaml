@@ -1,0 +1,73 @@
+# OpenTelemetry Collector: one OTLP/HTTP door in, three stores out.
+#
+#   traces  -> Tempo      (otlp_http)
+#   metrics -> Prometheus (exposed on :8889 for Prometheus to scrape)
+#   logs    -> Loki       (otlp_http to Loki's native /otlp endpoint)
+#
+# plus an http_check receiver that probes the backend's /health every 10 s,
+# so "is the API up" is a metric (httpcheck_status) Prometheus can alert on.
+
+receivers:
+  otlp:
+    protocols:
+      http:
+        endpoint: 0.0.0.0:4318
+  http_check:
+    targets:
+      - endpoint: http://backend:8000/health
+        method: GET
+    collection_interval: 10s
+
+processors:
+  batch:
+    timeout: 2s
+  # Defence in depth: even if an attribute with one of these names ever
+  # reached the Collector, it would not reach a store.
+  attributes/scrub:
+    actions:
+      - key: email
+        action: delete
+      - key: password
+        action: delete
+      - key: authorization
+        action: delete
+      - key: http.request.header.authorization
+        action: delete
+      - key: http.request.header.cookie
+        action: delete
+      - key: token
+        action: delete
+      - key: access_token
+        action: delete
+
+exporters:
+  otlp_http/tempo:
+    endpoint: http://tempo:4318
+    tls:
+      insecure: true
+  otlp_http/loki:
+    endpoint: http://loki:3100/otlp
+    tls:
+      insecure: true
+  prometheus:
+    endpoint: 0.0.0.0:8889
+    # Keep service.name etc. as labels on every series.
+    resource_constant_labels:
+      included: ["service.name", "service.version", "deployment.environment.name"]
+  debug:
+    verbosity: basic
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [attributes/scrub, batch]
+      exporters: [otlp_http/tempo]
+    metrics:
+      receivers: [otlp, http_check]
+      processors: [batch]
+      exporters: [prometheus]
+    logs:
+      receivers: [otlp]
+      processors: [attributes/scrub, batch]
+      exporters: [otlp_http/loki]

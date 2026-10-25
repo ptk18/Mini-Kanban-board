@@ -16,6 +16,7 @@ from app.database import get_db
 from app.models import Board, Card, Column
 from app.schemas.card import CardCreate, CardOut, CardUpdate, Priority
 from app.services.access import get_board_for_member, get_card_for_member
+from app.telemetry import CARD_MOVES, log
 from app.services.cards import (
     check_assignee,
     check_parent,
@@ -128,8 +129,14 @@ def update_card(
             setattr(card, name, getattr(body, name))
 
     if "column_id" in fields or "position" in fields:
+        from_column = card.column_id
         target_column = body.column_id if body.column_id is not None else card.column_id
         place(db, card, target_column, body.position)
+        if target_column != from_column:
+            # The key user journey; counted and logged (ids only, no content).
+            CARD_MOVES.add(1)
+            log.info("card.moved", card_id=card.id, board_id=board.id,
+                     from_column_id=from_column, to_column_id=target_column)
     db.commit()
     db.refresh(card)
     return card

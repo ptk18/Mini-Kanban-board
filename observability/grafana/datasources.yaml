@@ -1,0 +1,52 @@
+# Grafana datasource provisioning (apiVersion 1). The three stores, wired to
+# each other: a trace_id in a Loki log line links to the trace in Tempo, and a
+# Tempo span links back to the logs of its trace.
+
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    uid: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: false
+    jsonData:
+      httpMethod: POST
+      exemplarTraceIdDestinations:
+        - name: trace_id
+          datasourceUid: tempo
+
+  - name: Loki
+    type: loki
+    uid: loki
+    access: proxy
+    url: http://loki:3100
+    editable: false
+    jsonData:
+      derivedFields:
+        # The log line is JSON; pull the trace id out of it and link to Tempo.
+        - datasourceUid: tempo
+          matcherRegex: '"trace_id":\s*"(\w+)"'
+          name: trace_id
+          url: "$${__value.raw}"
+          urlDisplayLabel: View trace
+
+  - name: Tempo
+    type: tempo
+    uid: tempo
+    access: proxy
+    url: http://tempo:3200
+    editable: false
+    jsonData:
+      httpMethod: GET
+      tracesToLogsV2:
+        datasourceUid: loki
+        spanStartTimeShift: "-5m"
+        spanEndTimeShift: "5m"
+        filterByTraceID: true
+        customQuery: true
+        query: '{service_name="mini-kanban-api"} | trace_id="$${__trace.traceId}"'
+      streamingEnabled:
+        search: true

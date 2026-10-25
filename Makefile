@@ -4,10 +4,12 @@
 # the apps directly (two terminals, SQLite) as described in README.md.
 
 COMPOSE ?= docker compose
+# App stack + observability stack (Grafana on :3001).
+OBSERVE ?= docker compose -f docker-compose.yml -f observability/compose.yaml
 
 .DEFAULT_GOAL := help
 
-.PHONY: help up down logs ps seed test test-unit test-backend test-frontend test-integration test-e2e dev-backend dev-frontend
+.PHONY: help up down logs ps seed observe observe-down test test-unit test-backend test-frontend test-integration test-e2e dev-backend dev-frontend
 
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z0-9_-]+:.*## / {printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -27,6 +29,15 @@ ps: ## Show service status and health
 
 seed: ## Load the demo board into the running stack
 	$(COMPOSE) exec backend python scripts/seed.py
+
+observe: ## Start the app AND the observability stack (Grafana http://localhost:3001)
+	$(OBSERVE) up --build -d --wait
+	# Config files are bind-mounted one by one; recreate so edits take effect.
+	$(OBSERVE) up -d --no-deps --force-recreate --wait otel-collector prometheus alertmanager loki tempo grafana
+	@echo "App http://localhost:3000   Grafana http://localhost:3001/d/mini-kanban   Prometheus http://localhost:9090   Alertmanager http://localhost:9093"
+
+observe-down: ## Stop the app and observability stacks (data kept; add -v by hand to wipe)
+	$(OBSERVE) down
 
 # Host port of the Compose database (docker-compose.yml default). Override with POSTGRES_PORT=....
 POSTGRES_PORT ?= 5433

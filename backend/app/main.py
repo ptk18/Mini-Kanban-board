@@ -6,7 +6,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 import app.models  # noqa: F401  # registers every table on Base.metadata before create_all
-from app.database import prepare_database
+from app import telemetry
+from app.database import engine, prepare_database
+from app.version import app_version
 from app.routers import (
     ai,
     auth,
@@ -41,7 +43,11 @@ def cors_origins() -> list[str]:
     return origins or [DEFAULT_CORS_ORIGINS]
 
 
+telemetry.configure_logging()
 app = FastAPI(title="Mini Kanban API", lifespan=lifespan)
+telemetry.request_logging_middleware(app)
+# OTLP export only when OTEL_EXPORTER_OTLP_ENDPOINT is set; see app/telemetry.py.
+telemetry.setup_otlp_telemetry(app, engine)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins(),
@@ -58,13 +64,6 @@ app.include_router(ai.router)
 app.include_router(cards.router)
 app.include_router(checklist.router)
 app.include_router(comments.router)
-
-
-def app_version() -> str:
-    """The deployed commit, for the post-deploy smoke test to confirm the new
-    build is live. ``APP_VERSION`` wins; Render sets ``RENDER_GIT_COMMIT``;
-    otherwise ``"dev"``."""
-    return os.environ.get("APP_VERSION") or os.environ.get("RENDER_GIT_COMMIT") or "dev"
 
 
 @app.get("/health")

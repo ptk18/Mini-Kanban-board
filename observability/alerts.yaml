@@ -1,0 +1,3 @@
+# Prometheus alert rules. Placeholder until issue #45 defines the user-impact
+# rules; Prometheus needs the file to exist because prometheus.yml lists it.
+groups: []

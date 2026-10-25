@@ -114,6 +114,20 @@ rollback is one click or one `ref=`). Setup steps for the owner are in
 deploy has run._ Until then the deploy workflow exits green with a "skipped"
 notice.
 
+## Observability
+
+```sh
+make observe        # app + OpenTelemetry Collector, Prometheus, Loki, Tempo, Grafana
+```
+
+Grafana at `http://localhost:3001/d/mini-kanban` shows request rate, latency
+percentiles, 5xx ratio, the `/health` probe, cards moved per minute, the API
+logs and the slowest traces. Every request produces a span, a JSON log line
+and metric points that share one `trace_id`; a log line links to its trace
+and a span links back to its logs. Nothing user-supplied (e-mails, tokens,
+titles) is in any signal. Details and the metric reference:
+[`docs/observability.md`](docs/observability.md).
+
 ## Seed a demo board
 
 Against the Compose stack:
@@ -176,14 +190,17 @@ docker-compose.yml  db (Postgres 17) + backend + frontend, one command
 render.yaml         Render Blueprint: dev + prod services and databases
 .github/workflows/  ci.yml (every PR/push) and deploy.yml (dev automatic, prod manual)
 scripts/smoke.sh    post-deploy check: /health reports the expected sha, /login renders
-Makefile            up / down / logs / seed / test / test-integration / test-e2e shortcuts
-docs/               testing, deployment, release process (observability and on-call follow)
+observability/      compose overlay + Collector, Prometheus, Alertmanager, Loki, Tempo, Grafana configs, dashboards/mini-kanban.json
+Makefile            up / down / logs / seed / observe / test / test-integration / test-e2e shortcuts
+docs/               testing, deployment, release process, observability (alerting and on-call follow)
 _docs/              plan, backlog, design system, testing guidelines, team roles
 ```
 
 Backend layout (`backend/app/`):
 
-- `main.py` — app factory, startup check for `JWT_SECRET`, `prepare_database()`, router registration
+- `main.py` — app factory, startup check for `JWT_SECRET`, `prepare_database()`, telemetry wiring, router registration
+- `telemetry.py` — structlog JSON logs with trace ids, OpenTelemetry traces/metrics, request-logging middleware, redaction
+- `version.py` — the deployed commit for `/health` and `service.version`
 - `database.py` — engine, `Base`, `get_db`, the naive-UTC `utcnow()` helper, `prepare_database()` (`create_all` on SQLite, Alembic `upgrade head` on Postgres)
 - `alembic/` — migrations; `alembic/env.py` reads `DATABASE_URL`
 - `models/` — one module per table: `User`, `Board`, `BoardMember`, `Column`, `Card`, `Label`/`CardLabel`, `ChecklistItem`, `Comment` (`Activity` exists but is unused in the MVP)
