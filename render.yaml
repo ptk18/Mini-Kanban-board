@@ -22,10 +22,11 @@ services:
     plan: free
     region: frankfurt
     branch: main
-    autoDeployTrigger: off
+    autoDeployTrigger: "off"   # quoted: bare `off` is YAML for false
     rootDir: backend
-    dockerfilePath: ./Dockerfile
-    dockerContext: .
+    # Both paths are relative to the repo root, not to rootDir (Blueprint spec).
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
     healthCheckPath: /health
     envVars:
       - key: DATABASE_URL
@@ -49,10 +50,10 @@ services:
     plan: free
     region: frankfurt
     branch: main
-    autoDeployTrigger: off
+    autoDeployTrigger: "off"   # quoted: bare `off` is YAML for false
     rootDir: frontend
-    dockerfilePath: ./Dockerfile
-    dockerContext: .
+    dockerfilePath: ./frontend/Dockerfile
+    dockerContext: ./frontend
     healthCheckPath: /login
     envVars:
       # Render passes env vars to the Docker build as build args, which is
