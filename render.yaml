@@ -1,8 +1,10 @@
 # Render Blueprint (https://render.com/docs/blueprint-spec).
 #
-# Two environments from one file. `dev` is entirely on free plans; `prod`
-# needs a paid Postgres because a workspace gets one free database. Delete
-# the three `*-prod` resources before applying if you only want dev.
+# Everything here is on Render's free plans, so applying the Blueprint asks
+# for no payment method: two free web services and the workspace's one free
+# Postgres. (A production environment would need a second, paid database;
+# see docs/deployment.md for how to add one later, and for a free database
+# that does not expire.)
 #
 # Deploys are NOT triggered by pushes (autoDeployTrigger: off): GitHub
 # Actions (.github/workflows/deploy.yml) calls each service's deploy hook
@@ -60,64 +62,13 @@ services:
       - key: PORT
         value: "3000"
 
-  # --------------------------------------------------------------- prod ----
-  - type: web
-    name: mini-kanban-api-prod
-    runtime: docker
-    plan: free
-    region: frankfurt
-    branch: main
-    autoDeployTrigger: off
-    rootDir: backend
-    dockerfilePath: ./Dockerfile
-    dockerContext: .
-    healthCheckPath: /health
-    envVars:
-      - key: DATABASE_URL
-        fromDatabase:
-          name: mini-kanban-db-prod
-          property: connectionString
-      - key: JWT_SECRET
-        generateValue: true
-      - key: CORS_ORIGINS
-        value: https://mini-kanban-web-prod.onrender.com
-      - key: GEMINI_API_KEY
-        sync: false
-      - key: GEMINI_MODEL
-        value: gemini-2.5-flash
-      - key: PORT
-        value: "8000"
-
-  - type: web
-    name: mini-kanban-web-prod
-    runtime: docker
-    plan: free
-    region: frankfurt
-    branch: main
-    autoDeployTrigger: off
-    rootDir: frontend
-    dockerfilePath: ./Dockerfile
-    dockerContext: .
-    healthCheckPath: /login
-    envVars:
-      - key: NEXT_PUBLIC_API_URL
-        value: https://mini-kanban-api-prod.onrender.com
-      - key: PORT
-        value: "3000"
 
 databases:
   - name: mini-kanban-db-dev
-    plan: free            # 1 GB, expires 30 days after creation (Render free tier)
+    plan: free            # 1 GB; Render deletes free databases 30 days after creation —
+                          # for something longer-lived, see "Free database that does not expire" in docs/deployment.md
     region: frankfurt
     databaseName: kanban
     user: kanban
     postgresMajorVersion: "17"
     ipAllowList: []       # only Render services may connect
-
-  - name: mini-kanban-db-prod
-    plan: 0.1c-256mb      # smallest paid plan; the workspace's one free database is dev
-    region: frankfurt
-    databaseName: kanban
-    user: kanban
-    postgresMajorVersion: "17"
-    ipAllowList: []

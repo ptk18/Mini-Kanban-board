@@ -13,18 +13,53 @@ between them is described in [`release-process.md`](release-process.md).
 > notice until the steps below are done. Once they are, the URL goes in the
 > README.
 
-## What gets deployed
+## What gets deployed — all free
 
-| Resource | dev | production | From |
+| Resource | Name | Plan | From |
 |---|---|---|---|
-| API | `mini-kanban-api-dev` (free) | `mini-kanban-api-prod` (free) | `backend/Dockerfile`; runs `alembic upgrade head` then uvicorn on `PORT=8000`; health check `/health` |
-| Frontend | `mini-kanban-web-dev` (free) | `mini-kanban-web-prod` (free) | `frontend/Dockerfile`; `NEXT_PUBLIC_API_URL` baked in at build; health check `/login` |
-| Postgres 17 | `mini-kanban-db-dev` (free, 1 GB, **expires after 30 days**) | `mini-kanban-db-prod` (`0.1c-256mb`, paid) | `databases:` in `render.yaml` |
+| API | `mini-kanban-api-dev` | free web service | `backend/Dockerfile`; runs `alembic upgrade head` then uvicorn on `PORT=8000`; health check `/health` |
+| Frontend | `mini-kanban-web-dev` | free web service | `frontend/Dockerfile`; `NEXT_PUBLIC_API_URL` baked in at build; health check `/login` |
+| Postgres 17 | `mini-kanban-db-dev` | free (1 GB, **deleted 30 days after creation**) | `databases:` in `render.yaml` |
 
-Free web services sleep after 15 minutes without traffic and take about a
-minute to wake; the smoke test allows for that. A workspace gets one free
-Postgres, which is why production's is the smallest paid plan. If you only
-want dev, delete the three `*-prod` entries from `render.yaml` before applying.
+Everything in `render.yaml` is on a free plan, so applying the Blueprint
+should not ask for a payment method. (An earlier version declared a paid
+production database as well; that is what triggers Render's billing prompt.
+A production environment is a later, paid decision — see the end of this
+page.) Free web services sleep after 15 minutes without traffic and take
+about a minute to wake; the smoke test allows for that.
+
+### Free database that does not expire
+
+Render's free Postgres is deleted 30 days after creation (14-day grace).
+For something that outlives a review window, use a free hosted Postgres
+with no expiry, e.g. [Neon](https://neon.tech) (free tier, no card), and
+point the API at it:
+
+1. Create a Neon project (Postgres 17 is fine); copy its connection string
+   (`postgres://user:password@host/dbname?sslmode=require`).
+2. In `render.yaml`, replace the API's `DATABASE_URL` entry with
+   `- key: DATABASE_URL` / `sync: false` and delete the `databases:` block
+   (or, on an existing service, set `DATABASE_URL` in *Environment*).
+3. Paste the Neon string when prompted. The backend accepts the
+   `postgres://` scheme and the `sslmode` query parameter as-is; migrations
+   run on the next deploy.
+
+### If the dashboard still asks for a card
+
+Create the same three things by hand, no Blueprint needed:
+
+1. *New → Postgres*: name `mini-kanban-db-dev`, plan **Free**, region of
+   your choice (or skip this and use Neon as above).
+2. *New → Web Service* → the repo → **Root Directory** `backend`, runtime
+   **Docker**, plan **Free**, health check path `/health`, environment:
+   `DATABASE_URL` (the database's *Internal* URL), `JWT_SECRET` (any 32+
+   random characters), `CORS_ORIGINS` (the frontend URL from step 3),
+   `GEMINI_API_KEY` (optional), `PORT=8000`. Auto-deploy **off**.
+3. *New → Web Service* → the repo → **Root Directory** `frontend`, Docker,
+   Free, health check `/login`, environment: `NEXT_PUBLIC_API_URL` (the API
+   URL from step 2), `PORT=3000`. Auto-deploy **off**.
+
+Then continue from step 4 below (deploy hooks into GitHub).
 
 ## One-time setup (owner)
 
@@ -41,7 +76,7 @@ want dev, delete the three `*-prod` entries from `render.yaml` before applying.
    cross-references in `render.yaml` (`CORS_ORIGINS` on the API,
    `NEXT_PUBLIC_API_URL` on the frontend) to the real URLs, commit, and
    let the Blueprint sync.
-4. **Copy the deploy hooks.** For each of the four services: *Settings →
+4. **Copy the deploy hooks.** For each of the two services: *Settings →
    Deploy Hook*. In GitHub, *Settings → Secrets and variables → Actions →
    New repository secret*:
 
@@ -49,8 +84,6 @@ want dev, delete the three `*-prod` entries from `render.yaml` before applying.
    |---|---|
    | `RENDER_DEPLOY_HOOK_API_DEV` | deploy hook of `mini-kanban-api-dev` |
    | `RENDER_DEPLOY_HOOK_WEB_DEV` | deploy hook of `mini-kanban-web-dev` |
-   | `RENDER_DEPLOY_HOOK_API_PROD` | deploy hook of `mini-kanban-api-prod` |
-   | `RENDER_DEPLOY_HOOK_WEB_PROD` | deploy hook of `mini-kanban-web-prod` |
 
    and on the *Variables* tab:
 
@@ -58,8 +91,9 @@ want dev, delete the three `*-prod` entries from `render.yaml` before applying.
    |---|---|
    | `DEV_API_URL` | `https://mini-kanban-api-dev.onrender.com` |
    | `DEV_WEB_URL` | `https://mini-kanban-web-dev.onrender.com` |
-   | `PROD_API_URL` | `https://mini-kanban-api-prod.onrender.com` |
-   | `PROD_WEB_URL` | `https://mini-kanban-web-prod.onrender.com` |
+
+   (The `*_PROD` secrets and variables are only needed once a production
+   environment exists; until then the manual production job skips green.)
 
    The hooks are secrets (anyone holding one can deploy); *Regenerate Hook*
    in Render if one leaks, then update the GitHub secret.
@@ -67,8 +101,7 @@ want dev, delete the three `*-prod` entries from `render.yaml` before applying.
    production → Required reviewers*. The manual production job then waits
    for an approval click.
 6. **First deploy:** push to `main` (or re-run the latest *Deploy* workflow).
-   Dev deploys and is smoke-tested automatically. Then *Actions → Deploy →
-   Run workflow → environment: production* for the first production deploy.
+   Dev deploys and is smoke-tested automatically.
 7. **Seed (optional):** Render's free plan has no shell, so seed from your
    machine against the dev database by temporarily adding your IP to
    `ipAllowList`, exporting the *External Database URL* and running
@@ -111,3 +144,13 @@ Nothing is Render-specific except `render.yaml`. The two Dockerfiles, the
 entrypoint that migrates on start, `PORT`, and `/health` are what any
 container platform (Fly.io, Railway, Cloud Run, a VM with Compose) needs;
 `docker-compose.yml` is a complete reference deployment.
+
+## Adding a production environment later (paid)
+
+A second environment needs its own database, and a workspace has only one
+free Postgres. When that is wanted: add `mini-kanban-api-prod` /
+`mini-kanban-web-prod` (free web services) and `mini-kanban-db-prod` on the
+smallest paid plan (`0.1c-256mb`) to `render.yaml` with the same shape as
+the dev entries, fill the `*_PROD` secrets and variables, and
+`deploy.yml`'s manual production job takes over. Or keep production on
+Neon too, which is free.

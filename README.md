@@ -102,11 +102,13 @@ links, card modal with AI actions, new task from text) and see its dashboard at 
 
 ## Deployment
 
-The repository is deploy-ready for [Render](https://render.com): the
-Blueprint is [`render.yaml`](render.yaml), continuous delivery is
+The repository is deploy-ready for [Render](https://render.com) on free
+plans only: the Blueprint is [`render.yaml`](render.yaml) (two free web
+services + the free Postgres; a no-expiry free database option is
+documented), continuous delivery is
 [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) (dev deploys
-automatically after green CI, production is a manual, approval-gated run, and
-rollback is one click or one `ref=`). Setup steps for the owner are in
+automatically after green CI, production is a manual, approval-gated run for
+when a paid environment exists, and rollback is one click or one `ref=`). Setup steps for the owner are in
 [`docs/deployment.md`](docs/deployment.md); the release and rollback flow in
 [`docs/release-process.md`](docs/release-process.md).
 
