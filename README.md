@@ -3,7 +3,8 @@
 A small Kanban board for a team: boards with columns and cards, labels,
 checklists, comments, invite links, a per-board dashboard, and Gemini-backed
 card actions that only ever *propose* changes. Runs locally: a FastAPI +
-SQLite backend and a Next.js frontend.
+backend (SQLite for a quick start, Postgres in Docker and production) and a
+Next.js frontend.
 
 The product plan is in [`_docs/plan.md`](_docs/plan.md) and the backlog in
 [`_docs/tasks.md`](_docs/tasks.md); work is tracked as GitHub issues, one per
@@ -28,7 +29,7 @@ no `.env` file handling. The test suites set their own values.
 | Variable | App | Required | Meaning |
 |---|---|---|---|
 | `JWT_SECRET` | backend | **yes** for the server | HS256 secret for access tokens, at least 32 characters. The server refuses to start without it. Changing it logs everyone out. |
-| `DATABASE_URL` | backend | no | SQLAlchemy URL; default `sqlite:///./mini_kanban.db` (a file in `backend/`). `sqlite://` is in-memory. |
+| `DATABASE_URL` | backend | no | SQLAlchemy URL; default `sqlite:///./mini_kanban.db` (a file in `backend/`). `sqlite://` is in-memory. `postgresql+psycopg://user:pass@host/db` selects Postgres, migrated by Alembic on startup. |
 | `GEMINI_API_KEY` | backend | only for `/ai/...` | Google Gemini API key. Without it the AI routes answer `503`; everything else works. |
 | `GEMINI_MODEL` | backend | no | Gemini model, default `gemini-2.5-flash`. |
 | `CORS_ORIGINS` | backend | no | Comma-separated browser origins allowed to call the API. Default `http://localhost:3000` (the Next.js dev server). |
@@ -119,14 +120,15 @@ Conventions for writing tests are in
 
 ```text
 frontend/   Next.js 16 (App Router), TypeScript, Tailwind CSS 4, Vitest
-backend/    FastAPI, SQLAlchemy 2, SQLite, PyJWT + bcrypt, pytest
+backend/    FastAPI, SQLAlchemy 2, SQLite or Postgres (Alembic), PyJWT + bcrypt, pytest
 _docs/      plan, backlog, design system, testing guidelines, team roles
 ```
 
 Backend layout (`backend/app/`):
 
-- `main.py` — app factory, startup check for `JWT_SECRET`, `create_all()`, router registration
-- `database.py` — engine, `Base`, `get_db`, the naive-UTC `utcnow()` helper
+- `main.py` — app factory, startup check for `JWT_SECRET`, `prepare_database()`, router registration
+- `database.py` — engine, `Base`, `get_db`, the naive-UTC `utcnow()` helper, `prepare_database()` (`create_all` on SQLite, Alembic `upgrade head` on Postgres)
+- `alembic/` — migrations; `alembic/env.py` reads `DATABASE_URL`
 - `models/` — one module per table: `User`, `Board`, `BoardMember`, `Column`, `Card`, `Label`/`CardLabel`, `ChecklistItem`, `Comment` (`Activity` exists but is unused in the MVP)
 - `schemas/` — Pydantic request/response models; every `*Out` timestamp is serialised with an explicit UTC offset
 - `routers/` — `auth`, `boards`, `columns`, `cards`, `labels`, `checklist`, `comments`, `members`, `dashboard`, `ai`
@@ -139,7 +141,7 @@ Key rules the API follows:
 - A board is private to its owner and members. Non-members get `404` (ids are not enumerable); owner-only actions give members `403`.
 - Positions (columns in a board, cards in a column, checklist items on a card) are 0-based and kept contiguous by the server.
 - AI routes return previews. The only AI route that writes is `POST /ai/card/{id}/breakdown/apply`, which takes the list the user approved. Everything else is applied through the normal `PATCH`/`POST` routes.
-- No migrations: tables come straight from the models.
+- Schema: SQLite gets `create_all` straight from the models; Postgres gets Alembic migrations (`backend/alembic/`), run automatically on startup.
 
 The visual direction (dark developer tool, minimal) is in
 [`_docs/design-system.md`](_docs/design-system.md).

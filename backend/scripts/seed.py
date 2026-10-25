@@ -24,7 +24,7 @@ from sqlalchemy import select  # noqa: E402
 from sqlalchemy.orm import Session  # noqa: E402
 
 import app.models  # noqa: E402, F401
-from app.database import SessionLocal, create_all, utcnow  # noqa: E402
+from app.database import SessionLocal, prepare_database, utcnow  # noqa: E402
 from app.models import (  # noqa: E402
     Board,
     BoardMember,
@@ -176,7 +176,7 @@ def seed(db: Session) -> dict[str, int]:
 
 
 def main() -> None:
-    create_all()
+    prepare_database()
     with SessionLocal() as db:
         created = seed(db)
     if any(created.values()):

@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 import app.models  # noqa: F401  # registers every table on Base.metadata before create_all
-from app.database import create_all
+from app.database import prepare_database
 from app.routers import (
     ai,
     auth,
@@ -26,7 +26,7 @@ from app.services.auth import get_jwt_secret
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     # Refuse to serve anything without a usable signing secret.
     get_jwt_secret()
-    create_all()
+    prepare_database()
     yield
 
 

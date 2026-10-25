@@ -122,7 +122,7 @@ def test_main_prints_summary_then_nothing_to_do(seed_module, capsys, monkeypatch
     engine = make_engine("sqlite://")
     Base.metadata.create_all(engine)
     monkeypatch.setattr(seed_module, "SessionLocal", sessionmaker(bind=engine))
-    monkeypatch.setattr(seed_module, "create_all", lambda: None)
+    monkeypatch.setattr(seed_module, "prepare_database", lambda: None)
 
     seed_module.main()
     seed_module.main()

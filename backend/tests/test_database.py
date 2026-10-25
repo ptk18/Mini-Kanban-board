@@ -127,3 +127,50 @@ def test_utcnow_is_naive_utc():
     assert now.tzinfo is None
     expected = datetime.now(timezone.utc).replace(tzinfo=None)
     assert abs((expected - now).total_seconds()) < 5
+
+
+POSTGRES_URL = "postgresql+psycopg://kanban:secret@db.invalid:5432/kanban"
+
+
+def test_is_sqlite_url_distinguishes_backends():
+    assert database.is_sqlite_url("sqlite://")
+    assert database.is_sqlite_url("sqlite:///./mini_kanban.db")
+    assert not database.is_sqlite_url(POSTGRES_URL)
+
+
+def test_make_engine_postgres_has_no_sqlite_specific_setup():
+    # create_engine does not connect, so an unreachable host is fine here.
+    engine = make_engine(POSTGRES_URL)
+    try:
+        assert engine.dialect.name == "postgresql"
+        assert not isinstance(engine.pool, StaticPool)
+        assert engine.pool._pre_ping is True
+        # The PRAGMA listener would raise on psycopg; it must not be registered.
+        from sqlalchemy import event
+
+        assert not event.contains(engine, "connect", database.make_engine)
+    finally:
+        engine.dispose()
+
+
+def test_prepare_database_uses_create_all_on_sqlite(monkeypatch):
+    calls: list[str] = []
+    monkeypatch.setattr(database, "create_all", lambda: calls.append("create_all"))
+    monkeypatch.setattr(database, "run_migrations", lambda: calls.append("migrate"))
+    database.prepare_database()
+    assert calls == ["create_all"]
+
+
+def test_prepare_database_runs_migrations_elsewhere(monkeypatch):
+    calls: list[str] = []
+    monkeypatch.setattr(database, "create_all", lambda: calls.append("create_all"))
+    monkeypatch.setattr(database, "run_migrations", lambda: calls.append("migrate"))
+    monkeypatch.setattr(database, "engine", make_engine(POSTGRES_URL))
+    database.prepare_database()
+    assert calls == ["migrate"]
+
+
+def test_alembic_ini_has_no_hardcoded_url():
+    text_ = database.ALEMBIC_INI.read_text()
+    assert database.ALEMBIC_INI.exists()
+    assert "sqlalchemy.url =" not in text_

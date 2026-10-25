@@ -3,7 +3,7 @@
 FastAPI backend for the Mini Kanban board. It serves the smoke-test endpoint
 `GET /health`, email/password authentication with JWT bearer tokens
 (`POST /auth/signup`, `POST /auth/login`, `GET /auth/me`), and defines the
-SQLite database layer (SQLAlchemy 2.x models for users, boards, columns, cards,
+database layer (SQLite or Postgres; SQLAlchemy 2.x models for users, boards, columns, cards,
 labels, checklist items, comments and activity). There is no board or card
 business logic yet.
 
@@ -225,7 +225,7 @@ The invite link is permanent — there is no regeneration or revocation in
 the MVP. `invite_path` is the frontend route (`/invite/<token>`) the link
 should point at.
 
-> **Schema change (issue #11):** `boards.invite_token` was added. `create_all`
+> **Schema change (issue #11):** `boards.invite_token` was added. On SQLite, `create_all`
 > does not alter existing tables, so delete any local `mini_kanban.db`
 > created before this change and restart the server.
 
@@ -381,41 +381,66 @@ never call the network.
 
 ## Database
 
-The app uses SQLite through SQLAlchemy. The location comes from the
-`DATABASE_URL` environment variable, a full SQLAlchemy URL:
+Two backends, chosen by the `DATABASE_URL` environment variable (a full
+SQLAlchemy URL):
 
 | `DATABASE_URL` | Effect |
 |---|---|
 | unset (default) | `sqlite:///./mini_kanban.db` — the file `mini_kanban.db` in `backend/` (relative to the working directory, which is `backend/` for every command here) |
 | `sqlite:///path/to/file.db` | a SQLite file at that path |
-| `sqlite://` or `sqlite:///:memory:` | an in-memory database that lives only as long as the process (what the tests use) |
+| `sqlite://` or `sqlite:///:memory:` | an in-memory database that lives only as long as the process (what the unit tests use) |
+| `postgresql+psycopg://user:pass@host:5432/dbname` | Postgres through psycopg 3 — what Docker Compose and deployments use |
 
-The database file and all of its tables are created automatically the first
-time the server starts (`app/main.py` runs `create_all()` in its `lifespan`).
-Nothing is created just by importing the code, and starting the server again
-against an existing file is fine — `create_all` only adds tables that are
-missing. `*.db` is git-ignored, so the file is never committed.
-
-There is no migration tool (no Alembic). `create_all` does **not** alter
-tables that already exist, so after changing anything in `app/models/`,
-delete the file and restart to get the new schema:
+**SQLite** is the zero-setup path. The file and its tables are created the
+first time the server starts (`app/main.py` calls `prepare_database()` in its
+`lifespan`, which runs `create_all()` on SQLite). `create_all` only adds
+missing tables, so after changing anything in `app/models/` delete the file
+and restart:
 
 ```sh
 rm mini_kanban.db
 uv run uvicorn app.main:app --reload
 ```
 
+**Postgres** gets its schema from Alembic migrations in `alembic/`. On
+startup `prepare_database()` runs `alembic upgrade head`, so a fresh
+database is migrated by simply starting the server (or the seed script).
+To run migrations by hand, or to try it against a throwaway container:
+
+```sh
+docker run -d --name mk-pg -e POSTGRES_USER=kanban -e POSTGRES_PASSWORD=kanban -e POSTGRES_DB=kanban -p 5433:5432 postgres:17
+export DATABASE_URL=postgresql+psycopg://kanban:kanban@127.0.0.1:5433/kanban
+uv run alembic upgrade head     # apply every migration
+uv run alembic current          # show the applied revision
+uv run alembic check            # fail if the models and the migrations disagree
+```
+
+After a model change, generate a migration against a database that is at
+`head`, read the generated file (autogenerate misses renames and some
+constraint changes), then commit it together with the model change:
+
+```sh
+uv run alembic revision --autogenerate -m "add cards.estimate"
+uv run alembic upgrade head
+uv run alembic check
+```
+
+`alembic.ini` holds no connection URL; `alembic/env.py` reads `DATABASE_URL`.
+Migrations are never run on SQLite, and `alembic check` against SQLite is not
+meaningful (the column types differ).
+
 The schema is one table per model in `app/models/`:
 `users`, `boards`, `board_members`, `columns`, `cards`, `labels`,
-`card_labels`, `checklist_items`, `comments`, `activities`. To list the tables
-in the local file:
+`card_labels`, `checklist_items`, `comments`, `activities`, plus Alembic's
+`alembic_version` on Postgres. To list the tables in the local SQLite file:
 
 ```sh
 uv run python -c "import sqlite3; print(sorted(r[0] for r in sqlite3.connect('mini_kanban.db').execute(\"select name from sqlite_master where type='table'\")))"
 ```
 
 Timestamps (`created_at`, `updated_at`, `due_date`) are stored as naive UTC
-datetimes; use `app.database.utcnow()` whenever you need "now".
+datetimes on both backends (`TIMESTAMP WITHOUT TIME ZONE` on Postgres); use
+`app.database.utcnow()` whenever you need "now".
 
 ## Run the tests
 
