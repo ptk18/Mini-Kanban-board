@@ -41,7 +41,7 @@ The responder runs headless Claude Code (`claude -p`) with:
   commands; `--permission-mode dontAsk` denies everything else instead of
   prompting;
 - `--max-turns` and `--max-budget-usd` from the policy;
-- a scrubbed environment: `JWT_SECRET`, `DATABASE_URL`, `GEMINI_API_KEY`
+- a scrubbed environment: `JWT_SECRET`, `DATABASE_URL`, `OPENAI_API_KEY`, `GEMINI_API_KEY`
   and the Render hooks are unset; the live API, database and stores are not
   addressed anywhere in the prompt;
 - the worktree as its working directory and `--add-dir` scope. The main

@@ -51,7 +51,8 @@ METER_NAME = "mini-kanban"
 # Keys that must never reach a log line, whatever the caller passed.
 SENSITIVE_KEYS = frozenset(
     {"password", "password_hash", "authorization", "token", "access_token",
-     "email", "cookie", "set-cookie", "secret", "jwt_secret", "api_key"}
+     "email", "cookie", "set-cookie", "secret", "jwt_secret", "api_key",
+     "openai_api_key", "gemini_api_key"}
 )
 
 _SEVERITY = {

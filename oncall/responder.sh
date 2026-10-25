@@ -6,7 +6,7 @@
 #
 # Everything the model may do is decided here and in autonomy-policy.yaml,
 # not by the model: it runs with a fixed tool allowlist, in a worktree, with
-# a scrubbed environment (no JWT_SECRET, DATABASE_URL, GEMINI_API_KEY,
+# a scrubbed environment (no JWT_SECRET, DATABASE_URL, OPENAI_API_KEY, GEMINI_API_KEY,
 # RENDER_*), a turn cap and a dollar cap. Its answer must match
 # response.schema.json; anything else is treated as "escalate".
 set -euo pipefail
@@ -58,7 +58,7 @@ say "worktree: $WT ($BRANCH)"
 PROMPT="$(cat "$HERE/prompt.md"; echo; cat "$EVIDENCE")"
 set +e
 (
-  cd "$WT" && env -u CLAUDECODE -u JWT_SECRET -u DATABASE_URL -u GEMINI_API_KEY -u RENDER_DEPLOY_HOOK_API_DEV -u RENDER_DEPLOY_HOOK_WEB_DEV -u RENDER_DEPLOY_HOOK_API_PROD -u RENDER_DEPLOY_HOOK_WEB_PROD \
+  cd "$WT" && env -u CLAUDECODE -u JWT_SECRET -u DATABASE_URL -u OPENAI_API_KEY -u GEMINI_API_KEY -u RENDER_DEPLOY_HOOK_API_DEV -u RENDER_DEPLOY_HOOK_WEB_DEV -u RENDER_DEPLOY_HOOK_API_PROD -u RENDER_DEPLOY_HOOK_WEB_PROD \
     claude -p "$PROMPT" \
       --safe-mode --no-session-persistence \
       --output-format json --json-schema "$(cat "$HERE/response.schema.json")" \

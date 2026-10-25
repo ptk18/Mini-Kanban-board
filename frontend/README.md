@@ -51,7 +51,7 @@ Estimate effort, Summarize): each shows a preview you can edit and **Approve**
 "Estimate: …" line to the description). **New task from text** above the
 board asks `POST /ai/create-task` for a proposal and opens it in the modal;
 **Create card** then goes through the normal card `POST`. The backend needs
-`GEMINI_API_KEY` for any of this. Escape closes and focus stays inside — click
+an AI key (`OPENAI_API_KEY` or `GEMINI_API_KEY`) for any of this. Escape closes and focus stays inside — click
 a column header to rename it, **Delete** with a confirmation that
 explains the cards must be moved first. The toolbar searches (`q`) and
 filters by column, priority and assignee (AND), with an active-filter count

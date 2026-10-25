@@ -60,6 +60,14 @@ def client(session: Session) -> Iterator[TestClient]:
 
 
 @pytest.fixture(autouse=True)
+def no_ai_keys_from_the_shell(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The suite never calls a provider; a key in the developer's shell (or
+    # .env) must not change which code path a test exercises.
+    for name in ("OPENAI_API_KEY", "OPENAI_MODEL", "GEMINI_API_KEY", "GEMINI_MODEL", "AI_PROVIDER"):
+        monkeypatch.delenv(name, raising=False)
+
+
+@pytest.fixture(autouse=True)
 def fast_bcrypt(monkeypatch: pytest.MonkeyPatch) -> None:
     # Cost 12 is ~0.18 s per hash; cost 4 keeps the suite fast. One test undoes
     # this to exercise the production cost.

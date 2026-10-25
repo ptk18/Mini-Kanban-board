@@ -59,8 +59,9 @@ The interactive OpenAPI UI is at `http://127.0.0.1:8000/docs`. Its
 | `JWT_SECRET` | yes, for the server | HS256 signing secret for access tokens. No default; at least 32 characters. The server refuses to start without it (see above). The test suite sets its own value in `tests/conftest.py`, so it is not needed for `uv run pytest`. Changing it invalidates every token issued before — that is the only way to log everyone out. |
 | `DATABASE_URL` | no | SQLAlchemy URL of the database, see [Database](#database). |
 | `CORS_ORIGINS` | no | Comma-separated browser origins allowed to call the API (`Authorization` and `Content-Type` headers, all API methods). Default `http://localhost:3000`, the Next.js dev server. |
-| `GEMINI_API_KEY` | only for the AI routes | Google Gemini API key. Without it every `/ai/...` route answers `503` and everything else keeps working. |
-| `GEMINI_MODEL` | no | Gemini model name, default `gemini-2.5-flash`. |
+| `OPENAI_API_KEY` | only for the AI routes | OpenAI API key (Chat Completions, JSON mode). Without any AI key every `/ai/...` route answers `503` and everything else keeps working. |
+| `OPENAI_MODEL` | no | OpenAI model name, default `gpt-4.1-mini`. |
+| `GEMINI_API_KEY`, `GEMINI_MODEL` | no | Alternative provider (Google Gemini, default `gemini-2.5-flash`). OpenAI is used when both keys are set; `AI_PROVIDER=openai\|gemini` forces one. |
 
 Generate a secret:
 
@@ -342,7 +343,7 @@ curl -s http://127.0.0.1:8000/cards/1/comments -H "Authorization: Bearer $TOKEN"
 ## AI card actions
 
 `POST /ai/card/{card_id}/improve`, `.../prioritize`, `.../estimate` and
-`.../summarize` (members only) ask Gemini about **that card's fields only**
+`.../summarize` (members only) ask the model (OpenAI, or Gemini) about **that card's fields only**
 (title, description, priority, due date) and return a preview. **Nothing is
 written** — to apply a suggestion the client sends a normal
 `PATCH /cards/{card_id}` after the user approves.
@@ -372,7 +373,7 @@ user approves, the client posts it (plus the chosen `column_id`) to
 `POST /boards/{board_id}/cards`. There is deliberately no
 `create-task/apply`. Relative deadlines are resolved against today's UTC
 date, which the prompt includes. Errors: `503` when
-`GEMINI_API_KEY` is unset, `502` when Gemini cannot be reached or replies
+no AI key is set, `502` when the provider cannot be reached or replies
 with something that does not fit the shape above.
 
 The client lives in `app/services/ai.py` behind a one-method `AIClient`

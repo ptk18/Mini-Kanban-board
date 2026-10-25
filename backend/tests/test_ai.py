@@ -3,12 +3,21 @@ import json
 import urllib.error
 
 import pytest
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 import app.services.ai as ai_module
 from app.models import BoardMember, Card, User
-from app.services.ai import AIError, GeminiClient, extract_text, get_ai_client, parse_json_reply
+from app.services.ai import (
+    AIError,
+    GeminiClient,
+    OpenAIClient,
+    extract_openai_text,
+    extract_text,
+    get_ai_client,
+    parse_json_reply,
+)
 from app.services.auth import create_access_token
 
 ACTIONS = ["improve", "prioritize", "estimate", "summarize"]
@@ -166,7 +175,7 @@ def test_missing_api_key_is_503(call, card, monkeypatch):
     response = call("summarize", card.id)
 
     assert response.status_code == 503
-    assert response.json() == {"detail": "AI is not configured: set GEMINI_API_KEY"}
+    assert response.json() == {"detail": "AI is not configured: set OPENAI_API_KEY or GEMINI_API_KEY"}
 
 
 def test_non_member_is_404_before_the_model_is_called(call, card, session, fake_ai):
@@ -281,3 +290,74 @@ def test_get_ai_client_reads_env(monkeypatch):
 
     assert isinstance(client, GeminiClient)
     assert client._model == "gemini-custom"
+
+
+def test_get_ai_client_prefers_openai_when_both_keys_are_set(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "o")
+    monkeypatch.setenv("GEMINI_API_KEY", "g")
+    monkeypatch.setenv("OPENAI_MODEL", "gpt-custom")
+    client = get_ai_client()
+    assert isinstance(client, OpenAIClient)
+    assert client._model == "gpt-custom"
+
+
+def test_ai_provider_forces_gemini_even_with_an_openai_key(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "o")
+    monkeypatch.setenv("GEMINI_API_KEY", "g")
+    monkeypatch.setenv("AI_PROVIDER", "gemini")
+    assert isinstance(get_ai_client(), GeminiClient)
+
+
+def test_ai_provider_without_its_key_is_503(monkeypatch):
+    monkeypatch.setenv("GEMINI_API_KEY", "g")
+    monkeypatch.setenv("AI_PROVIDER", "openai")
+    with pytest.raises(HTTPException) as info:
+        get_ai_client()
+    assert info.value.status_code == 503
+
+
+def test_openai_client_posts_json_mode_and_returns_the_content(monkeypatch):
+    import io
+    import json as _json
+
+    seen = {}
+
+    class FakeResponse(io.BytesIO):
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
+
+    def fake_urlopen(request, timeout):
+        seen["url"] = request.full_url
+        seen["auth"] = request.get_header("Authorization")
+        seen["body"] = _json.loads(request.data)
+        return FakeResponse(_json.dumps({"choices": [{"message": {"content": '{"priority": "high"}'}}]}).encode())
+
+    monkeypatch.setattr(ai_module.urllib.request, "urlopen", fake_urlopen)
+    reply = OpenAIClient("secret-key", model="gpt-test").generate("PROMPT")
+
+    assert reply == '{"priority": "high"}'
+    assert seen["url"] == "https://api.openai.com/v1/chat/completions"
+    assert seen["auth"] == "Bearer secret-key"
+    assert seen["body"]["model"] == "gpt-test"
+    assert seen["body"]["response_format"] == {"type": "json_object"}
+    assert seen["body"]["messages"][-1] == {"role": "user", "content": "PROMPT"}
+
+
+def test_openai_http_error_is_an_ai_error(monkeypatch):
+    import urllib.error
+
+    def fake_urlopen(request, timeout):
+        raise urllib.error.HTTPError(request.full_url, 429, "rate limited", {}, None)
+
+    monkeypatch.setattr(ai_module.urllib.request, "urlopen", fake_urlopen)
+    with pytest.raises(AIError, match="HTTP 429"):
+        OpenAIClient("k").generate("x")
+
+
+@pytest.mark.parametrize("payload", [{}, {"choices": []}, {"choices": [{"message": {"content": "  "}}]}, {"choices": [{"message": {}}]}])
+def test_extract_openai_text_rejects_unusable_payloads(payload):
+    with pytest.raises(AIError):
+        extract_openai_text(payload)

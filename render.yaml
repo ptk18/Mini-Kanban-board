@@ -36,10 +36,10 @@ services:
         generateValue: true
       - key: CORS_ORIGINS
         value: https://mini-kanban-web-dev.onrender.com
-      - key: GEMINI_API_KEY
-        sync: false
-      - key: GEMINI_MODEL
-        value: gemini-2.5-flash
+      - key: OPENAI_API_KEY
+        sync: false          # paste at Blueprint apply, or leave empty for no AI
+      - key: OPENAI_MODEL
+        value: gpt-4.1-mini
       - key: PORT
         value: "8000"
 

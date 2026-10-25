@@ -4,8 +4,8 @@
 [![Deploy](https://github.com/ptk18/Mini-Kanban-board/actions/workflows/deploy.yml/badge.svg)](https://github.com/ptk18/Mini-Kanban-board/actions/workflows/deploy.yml)
 
 A small Kanban board for a team: boards with columns and cards, labels,
-checklists, comments, invite links, a per-board dashboard, and Gemini-backed
-card actions that only ever *propose* changes. Runs locally: a FastAPI +
+checklists, comments, invite links, a per-board dashboard, and AI card
+actions (OpenAI, or Gemini) that only ever *propose* changes. Runs locally: a FastAPI +
 backend (SQLite for a quick start, Postgres in Docker and production) and a
 Next.js frontend.
 
@@ -34,8 +34,9 @@ no `.env` file handling. The test suites set their own values.
 |---|---|---|---|
 | `JWT_SECRET` | backend | **yes** for the server | HS256 secret for access tokens, at least 32 characters. The server refuses to start without it. Changing it logs everyone out. |
 | `DATABASE_URL` | backend | no | SQLAlchemy URL; default `sqlite:///./mini_kanban.db` (a file in `backend/`). `sqlite://` is in-memory. `postgresql+psycopg://user:pass@host/db` selects Postgres, migrated by Alembic on startup. |
-| `GEMINI_API_KEY` | backend | only for `/ai/...` | Google Gemini API key. Without it the AI routes answer `503`; everything else works. |
-| `GEMINI_MODEL` | backend | no | Gemini model, default `gemini-2.5-flash`. |
+| `OPENAI_API_KEY` | backend | only for `/ai/...` | OpenAI API key for the card actions (Chat Completions, JSON mode). Without any AI key the `/ai/...` routes answer `503`; everything else works. |
+| `OPENAI_MODEL` | backend | no | OpenAI model, default `gpt-4.1-mini`. |
+| `GEMINI_API_KEY` / `GEMINI_MODEL` | backend | no | Alternative provider (Google Gemini, default `gemini-2.5-flash`). OpenAI wins when both keys are set; `AI_PROVIDER=openai\|gemini` forces one. |
 | `CORS_ORIGINS` | backend | no | Comma-separated browser origins allowed to call the API. Default `http://localhost:3000` (the Next.js dev server). |
 | `NEXT_PUBLIC_API_URL` | frontend | no | Backend base URL as seen from the browser. Default `http://127.0.0.1:8000`; set it in `frontend/.env.local` (see `frontend/.env.example`). |
 

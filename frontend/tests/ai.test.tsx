@@ -170,12 +170,12 @@ describe("AiPanel: Approve writes, Discard does not", () => {
   });
 
   test("an AI error is shown and nothing is written", async () => {
-    api.aiPrioritize.mockRejectedValue(new ApiError(503, "AI is not configured: set GEMINI_API_KEY"));
+    api.aiPrioritize.mockRejectedValue(new ApiError(503, "AI is not configured: set OPENAI_API_KEY or GEMINI_API_KEY"));
     renderPanel();
 
     fireEvent.click(screen.getByRole("button", { name: "Prioritize" }));
 
-    expect(await screen.findByText("AI is not configured: set GEMINI_API_KEY")).toBeDefined();
+    expect(await screen.findByText("AI is not configured: set OPENAI_API_KEY or GEMINI_API_KEY")).toBeDefined();
     expect(screen.queryByRole("region", { name: "AI preview" })).toBeNull();
     expect(api.updateCard).not.toHaveBeenCalled();
   });
