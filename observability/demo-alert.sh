@@ -44,8 +44,11 @@ deadline=$(( $(date +%s) + 240 ))
 n=0
 while [ "$(date +%s)" -lt "$deadline" ]; do
   for c in $CARDS; do
-    code=$(curl -s -o /dev/null -w '%{http_code}' -X PATCH "$API/cards/$c" -H "$AUTH" -H 'Content-Type: application/json' -d "{\"column_id\": $([ $((n % 2)) = 0 ] && echo "$LAST" || echo "$FIRST")}")
-    printf '%s ' "$code"
+    # Two moves per card so at least one changes its column (a move to the
+    # column a card is already in is a no-op and succeeds).
+    code=$(curl -s -o /dev/null -w '%{http_code}' -X PATCH "$API/cards/$c" -H "$AUTH" -H 'Content-Type: application/json' -d "{\"column_id\": $LAST}")
+    code2=$(curl -s -o /dev/null -w '%{http_code}' -X PATCH "$API/cards/$c" -H "$AUTH" -H 'Content-Type: application/json' -d "{\"column_id\": $FIRST}")
+    printf '%s/%s ' "$code" "$code2"
   done
   curl -s -o /dev/null "$API/boards/$BOARD/dashboard" -H "$AUTH"
   n=$((n + 1))

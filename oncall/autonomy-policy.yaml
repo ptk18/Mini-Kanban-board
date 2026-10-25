@@ -1,0 +1,55 @@
+# What the on-call responder may do on its own. Enforced by responder.sh
+# and server.py (code outside the model), not by asking the model nicely:
+# the model only ever sees the evidence packet and a git worktree, and the
+# CLI is started with exactly the tools listed here.
+
+responder:
+  trigger: alertmanager_webhook          # server.py, POST /alert
+  cooldown_seconds: 600                  # one run per alert name per 10 minutes
+  max_turns: 30
+  max_budget_usd: 3
+  timeout_seconds: 600
+  model: default                         # the account's default model
+
+evidence:
+  collected_by: collect-evidence.sh      # read-only, allowlisted queries only
+  sources: [prometheus, loki, tempo, compose_ps, git_log, git_status]
+  max_bytes: 40000
+  never_included: [environment_variables, secrets, request_bodies, headers, user_emails]
+
+model_may:
+  - read the evidence packet and the repository checkout in its worktree
+  - edit files inside its worktree
+  - run the backend unit tests inside its worktree (uv run pytest)
+  - inspect git history and diffs (read-only git commands)
+  - propose one of the actions below
+
+model_may_not:
+  - push, merge, tag, or deploy anything
+  - touch the main checkout, .env files, render.yaml or workflow files
+  - start, stop or reconfigure containers
+  - read environment variables, credentials or the database
+  - call any network endpoint
+
+# Actions the model may propose. "automatic" ones are executed by
+# responder.sh after the model answers, with their own verification; the
+# rest produce a report for a human.
+actions:
+  clear_demo_fault:
+    automatic: true
+    description: POST /debug/fault {"card_move_fails": false} on the local API — only valid while the evidence shows InjectedFault
+    requires_confidence: 0.8
+  fix_in_worktree:
+    automatic: true
+    description: the model has edited code in its worktree; responder.sh runs the unit tests there and commits on the branch. Never pushed.
+    requires_confidence: 0.7
+  restart_backend:
+    automatic: false
+    description: proposal only — a human runs `docker compose restart backend`
+  escalate:
+    automatic: false
+    description: the model is not confident or the fix is out of policy
+
+escalation:
+  when: confidence below the action's requires_confidence, invalid JSON, policy violation, tests fail, or recovery not verified
+  to: oncall/reports/<timestamp>-<alert>.md with NEEDS HUMAN in the first line

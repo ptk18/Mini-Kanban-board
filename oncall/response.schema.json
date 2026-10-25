@@ -1,0 +1,51 @@
+{
+  "title": "On-call responder answer",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "diagnosis",
+    "root_cause",
+    "proposed_action",
+    "confidence",
+    "needs_human",
+    "verification"
+  ],
+  "properties": {
+    "diagnosis": {
+      "type": "string",
+      "description": "Two to four sentences: what users experience, what the evidence shows, since when."
+    },
+    "root_cause": {
+      "type": "string",
+      "description": "The specific code path, switch or dependency responsible, with file:line where known."
+    },
+    "proposed_action": {
+      "type": "string",
+      "enum": [
+        "clear_demo_fault",
+        "fix_in_worktree",
+        "restart_backend",
+        "escalate"
+      ],
+      "description": "One of the actions in autonomy-policy.yaml."
+    },
+    "fix_summary": {
+      "type": "string",
+      "description": "For fix_in_worktree: what was changed in the worktree and why. Empty otherwise."
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "How sure the diagnosis is, 0 to 1."
+    },
+    "needs_human": {
+      "type": "boolean",
+      "description": "True when a person must look before or after the action."
+    },
+    "verification": {
+      "type": "string",
+      "description": "What observation would show the incident is over (metric, log line, endpoint)."
+    }
+  }
+}

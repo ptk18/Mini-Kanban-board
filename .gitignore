@@ -1,2 +1,7 @@
 .env
 .DS_Store
+
+# on-call responder runtime output
+oncall/worktrees/
+oncall/reports/
+oncall/payloads/

@@ -9,7 +9,7 @@ the on-call responder's webhook (`http://oncall:9000/alert`, see
 
 | Alert | Fires when | Why this threshold |
 |---|---|---|
-| **KanbanApiErrors** | more than **5 %** of requests to `/boards*` and `/cards*` returned 5xx over the last **1 minute**, sustained for **30 s** | A ratio, not a count: one flaky request on a quiet board must not page anyone, while one failure in twenty, kept up for half a minute, means people cannot work on their boards. The window is short because the product is interactive; a user notices within seconds. |
+| **KanbanApiErrors** | more than **5 %** of requests to `/boards*` and `/cards*` returned 5xx over the last **1 minute**, with at least **~6 requests/min** of traffic, sustained for **30 s** | A ratio, not a count: one flaky request on a busy board must not page anyone, while one failure in twenty, kept up for half a minute, means people cannot work on their boards. The traffic floor keeps a single failed click on an otherwise idle board from paging too (found the hard way: the recovery check's own test move did exactly that). The window is short because the product is interactive; a user notices within seconds. |
 | **KanbanApiDown** | the last successful `/health` probe sample is more than **60 s** old, sustained for **30 s** | The probe runs every 10 s; six misses in a row is an outage, not a blip. Deploys restart the container in well under a minute, so a normal release does not fire it. |
 
 Both are `severity: critical` and carry a `summary`, a `description` and a
@@ -23,6 +23,8 @@ Both are `severity: critical` and carry a `summary`, a `description` and a
   /
   sum(rate(kanban_http_requests_total{http_route=~"/boards.*|/cards.*"}[1m]))
 ) > 0.05
+and on()
+sum(rate(kanban_http_requests_total{http_route=~"/boards.*|/cards.*"}[1m])) > 0.1
 ```
 
 What to look at: the `level=error` `http.request` log lines in Loki (they

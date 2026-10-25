@@ -9,7 +9,7 @@ OBSERVE ?= docker compose -f docker-compose.yml -f observability/compose.yaml
 
 .DEFAULT_GOAL := help
 
-.PHONY: help up down logs ps seed observe observe-down demo-alert test test-unit test-backend test-frontend test-integration test-e2e dev-backend dev-frontend
+.PHONY: help up down logs ps seed observe observe-down demo-alert oncall demo-oncall oncall-clean test test-unit test-backend test-frontend test-integration test-e2e dev-backend dev-frontend
 
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z0-9_-]+:.*## / {printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -41,6 +41,16 @@ observe-down: ## Stop the app and observability stacks (data kept; add -v by han
 
 demo-alert: ## Make card moves fail on purpose and watch KanbanApiErrors fire (needs `make observe` + `make seed`)
 	observability/demo-alert.sh
+
+oncall: ## Run the on-call webhook receiver in the foreground (Alertmanager -> responder)
+	python3 oncall/server.py
+
+demo-oncall: ## Full incident: start the receiver, inject the fault, let the responder diagnose, act and verify (needs `make observe` + `make seed`)
+	oncall/demo.sh
+
+oncall-clean: ## Remove responder worktrees and branches (reports are kept)
+	@for wt in oncall/worktrees/*/; do [ -d "$$wt" ] && git worktree remove --force "$$wt"; done; true
+	@git branch --list 'oncall/*' | xargs -r git branch -D
 
 # Host port of the Compose database (docker-compose.yml default). Override with POSTGRES_PORT=....
 POSTGRES_PORT ?= 5433
