@@ -134,6 +134,17 @@ unanswered for a minute). `make demo-alert` breaks card moves on purpose
 and shows the first one go pending → firing in about a minute, then clears
 the fault. Rules, thresholds and the demo: [`docs/alerting.md`](docs/alerting.md).
 
+When an alert fires, Alertmanager calls a webhook that starts an **on-call
+responder**: headless Claude Code, given a bounded read-only evidence
+packet and an isolated git worktree, no credentials, a tool allowlist and a
+dollar cap. It answers in a fixed JSON schema; a policy file decides which
+proposed actions run automatically (clear the demo fault, or commit a
+tested fix on an un-pushed branch) and which go to a human. Recovery is
+verified against Prometheus and the smoke test, not taken on the model's
+word. `make demo-oncall` runs the whole incident; a recorded run is in
+[`docs/oncall-demo.md`](docs/oncall-demo.md), the design in
+[`docs/oncall.md`](docs/oncall.md).
+
 ## Seed a demo board
 
 Against the Compose stack:
@@ -197,8 +208,9 @@ render.yaml         Render Blueprint: dev + prod services and databases
 .github/workflows/  ci.yml (every PR/push) and deploy.yml (dev automatic, prod manual)
 scripts/smoke.sh    post-deploy check: /health reports the expected sha, /login renders
 observability/      compose overlay + Collector, Prometheus, Alertmanager, Loki, Tempo, Grafana configs, dashboards/mini-kanban.json
-Makefile            up / down / logs / seed / observe / demo-alert / test / test-integration / test-e2e shortcuts
-docs/               testing, deployment, release process, observability, alerting (on-call follows)
+oncall/             webhook receiver, responder, evidence collector, autonomy policy, answer schema, recovery check
+Makefile            up / down / logs / seed / observe / demo-alert / oncall / demo-oncall / test / test-integration / test-e2e
+docs/               testing, deployment, release process, observability, alerting, on-call (+ the recorded demo)
 _docs/              plan, backlog, design system, testing guidelines, team roles
 ```
 
@@ -229,11 +241,69 @@ The visual direction (dark developer tool, minimal) is in
 
 ## Screenshots
 
-_Placeholders:_
+| | |
+|---|---|
+| ![Board](docs/images/board.png) **Board** — columns, cards with priority, due date, labels and assignee, filters, new task from text | ![Card modal](docs/images/card-modal.png) **Card** — fields, labels, AI actions, checklist, comments |
+| ![Dashboard](docs/images/dashboard.png) **Dashboard** — totals, by column, overdue, progress | ![Grafana](docs/images/grafana-dashboard.png) **Operations** — request rate, latency, 5xx ratio, card moves, logs with trace links |
 
-- Login / Sign up (`/login`, `/signup`)
-- Board list (`/boards`)
-- Board with columns, cards, toolbar and members panel (`/boards/[id]`)
-- Card modal (fields, labels, checklist, comments, AI actions)
-- Dashboard (`/boards/[id]/dashboard`)
-- Invite flow (`/invite/[token]`)
+Also [login](docs/images/login.png) and the [board list](docs/images/boards.png).
+Regenerate with `cd frontend && node e2e/screenshots.mjs ../docs/images`
+against a seeded stack, and the Grafana one with `observability/screenshot.mjs`.
+
+## How this was built with AI tools
+
+The whole project was built with [Claude Code](https://claude.com/claude-code)
+as the engineer, following the AI Dev Tools Zoomcamp workflow:
+
+1. **Specify first.** The product spec ([`_docs/plan.md`](_docs/plan.md)) and
+   a backlog ([`_docs/tasks.md`](_docs/tasks.md),
+   [`_docs/tasks-production.md`](_docs/tasks-production.md)) were written
+   before any code, then turned into GitHub issues with acceptance criteria
+   ([template](_docs/task-template.md)).
+2. **One issue at a time, three roles.** [`_docs/process.md`](_docs/process.md)
+   defines a PM who grooms, an engineer who implements and a QA who checks
+   acceptance criteria ([`_docs/team/`](_docs/team/)). Every issue is
+   closed with a comment listing what shipped and the exact verification
+   that was run, so issue → commit → evidence is traceable, e.g.
+   [#24 drag and drop](https://github.com/ptk18/Mini-Kanban-board/issues/24),
+   [#39 Postgres + Alembic](https://github.com/ptk18/Mini-Kanban-board/issues/39),
+   [#44 observability](https://github.com/ptk18/Mini-Kanban-board/issues/44),
+   [#46 on-call agent](https://github.com/ptk18/Mini-Kanban-board/issues/46).
+3. **Durable context for agents.** [`AGENTS.md`](AGENTS.md) carries the
+   commands, the rules and an index of every document; the frontend has its
+   own note about the Next.js version. Conventions live in docs, not in
+   chat history ([testing guidelines](_docs/testing-guidelines.md),
+   [design system](_docs/design-system.md)).
+4. **Verify by running, not by reading.** Each closing comment quotes test
+   counts, curl output, Prometheus/Loki/Tempo queries, CI run links or the
+   recorded alert timeline. Where something could not be verified (the Render
+   account, branch protection) the comment says so and names the owner action.
+5. **An agent in production too.** The on-call responder
+   ([`oncall/`](oncall/)) is headless Claude Code inside a policy: bounded
+   evidence, a worktree, a tool allowlist, a JSON schema, and recovery
+   verified by observation. [`docs/oncall-demo.md`](docs/oncall-demo.md) is a
+   recorded run.
+
+Things the model got wrong and the process caught: a `setup-uv` action
+version that does not exist as a floating tag (CI), a Tempo config key that
+Tempo 3 rejects (container exit), an alert rule that could never fire
+because of Prometheus lookback (recorded stop/start test), and a JSON schema
+header that silently disables Claude Code's structured output (the
+responder's escalation path). Each is documented where it was found.
+
+## Rubric map
+
+| # | Criterion | Where to look |
+|---|---|---|
+| 1 | Problem description | this README, top; [`_docs/plan.md`](_docs/plan.md) §1–3 |
+| 2 | Product specification + public tracker | [`_docs/plan.md`](_docs/plan.md), [`_docs/tasks.md`](_docs/tasks.md), [`_docs/tasks-production.md`](_docs/tasks-production.md); [issues #1–#47](https://github.com/ptk18/Mini-Kanban-board/issues?q=is%3Aissue) with acceptance criteria and closing evidence |
+| 3 | Agent team specification | [`_docs/process.md`](_docs/process.md), [`_docs/team/`](_docs/team/) |
+| 4 | Context management | [`AGENTS.md`](AGENTS.md) (commands, rules, index of all docs), [`frontend/AGENTS.md`](frontend/AGENTS.md) |
+| 5 | Application | Next.js + FastAPI + Postgres, `docker compose up --build`, [Run it](#run-it) |
+| 6 | Testing | unit + integration + e2e, `make test`, [`docs/testing.md`](docs/testing.md) |
+| 7 | Containerization | [`docker-compose.yml`](docker-compose.yml), `backend/Dockerfile`, `frontend/Dockerfile` |
+| 8 | Deployment | [`render.yaml`](render.yaml), [`docs/deployment.md`](docs/deployment.md) — steps documented; public URL pending the owner's Render account |
+| 9 | CI/CD | [`ci.yml`](.github/workflows/ci.yml) on every PR/push; [`deploy.yml`](.github/workflows/deploy.yml): dev automatic after green CI, production manual with approval; [`docs/release-process.md`](docs/release-process.md) |
+| 10 | Observability | [`docs/observability.md`](docs/observability.md): traces, metrics and structured logs sharing a `trace_id`, no customer data, Grafana over Prometheus/Loki/Tempo |
+| 11 | Alerting on user impact | [`observability/alerts.yaml`](observability/alerts.yaml), [`docs/alerting.md`](docs/alerting.md), `make demo-alert` |
+| 12 | On-call agent | [`oncall/`](oncall/), [`docs/oncall.md`](docs/oncall.md), [`docs/oncall-demo.md`](docs/oncall-demo.md), `make demo-oncall` |
