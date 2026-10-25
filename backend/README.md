@@ -379,6 +379,24 @@ The client lives in `app/services/ai.py` behind a one-method `AIClient`
 interface; tests override the `get_ai_client` dependency with a fake and
 never call the network.
 
+## Docker
+
+`Dockerfile` builds a two-stage image: uv resolves `uv.lock` into a virtualenv,
+and a `python:3.14-slim` runtime carries that venv plus `app/`, `alembic/` and
+`scripts/`, running as the non-root `app` user on port `8000`.
+`docker-entrypoint.sh` runs `alembic upgrade head` first whenever
+`DATABASE_URL` is not SQLite, then execs the command (uvicorn by default, or
+e.g. `python scripts/seed.py`). The image has a `HEALTHCHECK` on `/health`.
+
+```sh
+docker build -t mini-kanban-backend .
+docker run --rm -p 8000:8000 -e JWT_SECRET=$JWT_SECRET \
+  -e DATABASE_URL=postgresql+psycopg://kanban:kanban@host.docker.internal:5433/kanban \
+  mini-kanban-backend
+```
+
+The root `docker-compose.yml` wires this to Postgres; see the root README.
+
 ## Database
 
 Two backends, chosen by the `DATABASE_URL` environment variable (a full

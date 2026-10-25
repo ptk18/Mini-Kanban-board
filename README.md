@@ -15,6 +15,7 @@ task. Each app has its own README with the full command reference:
 
 | Tool | Version | Used by |
 |---|---|---|
+| [Docker](https://docs.docker.com/get-docker/) with Compose v2 | 24+ | the one-command stack (`docker compose up`); nothing else is needed for that path |
 | [`uv`](https://docs.astral.sh/uv/) | 0.11+ | backend (installs Python 3.14 itself if needed) |
 | Python | 3.14 (`backend/.python-version`) | backend |
 | Node.js | 20.9+ | frontend |
@@ -43,7 +44,26 @@ uv run --directory backend python -c "import secrets; print(secrets.token_urlsaf
 
 ## Run it
 
-Two terminals.
+### One command (Docker Compose)
+
+Starts Postgres, the backend (migrations applied on start) and the frontend:
+
+```sh
+docker compose up --build        # or: make up
+```
+
+Then open `http://localhost:3000` and sign up, or load the demo board first
+(see [Seed a demo board](#seed-a-demo-board)). The API is at
+`http://localhost:8000` (`/docs` is interactive). Every variable has a
+laptop-only default in `docker-compose.yml`; to change one, `cp .env.example
+.env` and edit it. The frontend bakes `NEXT_PUBLIC_API_URL` into its bundle,
+so changing that one needs `docker compose up --build`.
+
+Data lives in the `pgdata` volume and survives `docker compose down`;
+`docker compose down -v` wipes it. `make help` lists the shortcuts
+(`up`, `down`, `logs`, `ps`, `seed`, `test`).
+
+### Two terminals (development, SQLite)
 
 **Backend** (from `backend/`):
 
@@ -54,8 +74,10 @@ export JWT_SECRET=$(uv run python -c "import secrets; print(secrets.token_urlsaf
 uv run uvicorn app.main:app --reload
 ```
 
-Serves `http://127.0.0.1:8000`; tables are created on first start (no
-migrations — after a model change, delete `mini_kanban.db` and restart).
+Serves `http://127.0.0.1:8000` on a SQLite file; tables are created on first
+start (after a model change, delete `mini_kanban.db` and restart, or point
+`DATABASE_URL` at Postgres to use the Alembic migrations — see
+[`backend/README.md`](backend/README.md#database)).
 `http://127.0.0.1:8000/docs` is the interactive API. Smoke check:
 
 ```sh
@@ -77,8 +99,14 @@ links, card modal with AI actions, new task from text) and see its dashboard at 
 
 ## Seed a demo board
 
-With the backend installed (the server does not need to be running; the
-script writes to the same `DATABASE_URL`):
+Against the Compose stack:
+
+```sh
+docker compose exec backend python scripts/seed.py     # or: make seed
+```
+
+Against a local backend (the server does not need to be running; the script
+writes to the same `DATABASE_URL`):
 
 ```sh
 cd backend
@@ -109,6 +137,7 @@ curl -s http://127.0.0.1:8000/boards -H "Authorization: Bearer $TOKEN"
 ## Run the tests
 
 ```sh
+make test                            # both suites below
 cd backend && uv run pytest          # FastAPI TestClient + in-memory SQLite, no server needed
 cd frontend && npm test              # Vitest + React Testing Library, single run
 ```
@@ -119,9 +148,11 @@ Conventions for writing tests are in
 ## Architecture
 
 ```text
-frontend/   Next.js 16 (App Router), TypeScript, Tailwind CSS 4, Vitest
-backend/    FastAPI, SQLAlchemy 2, SQLite or Postgres (Alembic), PyJWT + bcrypt, pytest
-_docs/      plan, backlog, design system, testing guidelines, team roles
+frontend/           Next.js 16 (App Router), TypeScript, Tailwind CSS 4, Vitest; Dockerfile (standalone output)
+backend/            FastAPI, SQLAlchemy 2, SQLite or Postgres (Alembic), PyJWT + bcrypt, pytest; Dockerfile
+docker-compose.yml  db (Postgres 17) + backend + frontend, one command
+Makefile            up / down / logs / seed / test shortcuts
+_docs/              plan, backlog, design system, testing guidelines, team roles
 ```
 
 Backend layout (`backend/app/`):

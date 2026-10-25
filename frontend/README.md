@@ -87,6 +87,25 @@ npm run typecheck
 npm run build
 ```
 
+`next.config.ts` sets `output: "standalone"`, so `npm run build` also emits
+`.next/standalone/` (a traced server without `node_modules`); `npm start`
+still works for a plain Node deployment.
+
+## Docker
+
+`Dockerfile` is a three-stage build (deps → `next build` → runner on
+`node:22-alpine`, non-root `node` user, port `3000`). `NEXT_PUBLIC_API_URL` is
+a **build argument**: Next.js inlines `NEXT_PUBLIC_*` values into the browser
+bundle, so the image is built for one backend URL — the one the *browser*
+will call, not a Compose service name.
+
+```bash
+docker build --build-arg NEXT_PUBLIC_API_URL=http://localhost:8000 -t mini-kanban-frontend .
+docker run --rm -p 3000:3000 mini-kanban-frontend
+```
+
+The root `docker-compose.yml` does this for you; see the root README.
+
 ## Stack
 
 Exact installed versions (from `package-lock.json`):
