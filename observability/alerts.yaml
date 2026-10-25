@@ -1,3 +1,53 @@
-# Prometheus alert rules. Placeholder until issue #45 defines the user-impact
-# rules; Prometheus needs the file to exist because prometheus.yml lists it.
-groups: []
+# Prometheus alert rules — user impact only, no CPU or memory.
+#
+# Both rules route to Alertmanager (alertmanager.yml), which calls the on-call
+# responder's webhook. `make demo-alert` triggers KanbanApiErrors on purpose.
+
+groups:
+  - name: mini-kanban-user-impact
+    rules:
+      # Users of the board are getting errors: the share of 5xx answers on
+      # the board and card routes is above 5 % over the last minute, and has
+      # been for 30 s. Why these numbers: a single flaky request on a quiet
+      # board must not page anyone (hence a ratio, not a count), but a
+      # sustained one-in-twenty failure is already a broken product.
+      - alert: KanbanApiErrors
+        expr: |
+          (
+            sum(rate(kanban_http_requests_total{http_route=~"/boards.*|/cards.*", http_response_status_code=~"5.."}[1m]))
+            /
+            sum(rate(kanban_http_requests_total{http_route=~"/boards.*|/cards.*"}[1m]))
+          ) > 0.05
+        for: 30s
+        labels:
+          severity: critical
+          service: mini-kanban-api
+        annotations:
+          summary: "Board/card requests are failing ({{ $value | humanizePercentage }} 5xx over 1m)"
+          description: >-
+            More than 5% of /boards* and /cards* requests returned 5xx for 30 s.
+            Users cannot work on their boards. Check the error log lines
+            (level=error, event=http.request) and the traces for the failing route.
+          runbook: docs/alerting.md#kanbanapierrors
+
+      # The API is not answering /health at all: no successful probe sample
+      # for 60 s. Asking "how old is the last 200?" (timestamp()) is immune to
+      # the probe's changing label sets and to lookback: while healthy the
+      # "200" series gets a fresh sample every 10 s; when the backend is down
+      # the Collector stops exporting it (metric_expiration: 30s) and the age
+      # grows. `absent` covers the case where it never existed in the window.
+      - alert: KanbanApiDown
+        expr: |
+          (time() - max(timestamp(httpcheck_status{http_status_class="2xx", http_status_code="200", http_url=~".*/health"})) > 60)
+          or
+          absent(httpcheck_status{http_status_class="2xx", http_status_code="200", http_url=~".*/health"})
+        for: 30s
+        labels:
+          severity: critical
+          service: mini-kanban-api
+        annotations:
+          summary: "The API is down: /health has not returned 2xx for 1 minute"
+          description: >-
+            The Collector's HTTP probe of http://backend:8000/health has not
+            seen a 2xx answer for a minute. Nothing works for anyone.
+          runbook: docs/alerting.md#kanbanapidown

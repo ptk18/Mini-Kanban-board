@@ -9,7 +9,7 @@ OBSERVE ?= docker compose -f docker-compose.yml -f observability/compose.yaml
 
 .DEFAULT_GOAL := help
 
-.PHONY: help up down logs ps seed observe observe-down test test-unit test-backend test-frontend test-integration test-e2e dev-backend dev-frontend
+.PHONY: help up down logs ps seed observe observe-down demo-alert test test-unit test-backend test-frontend test-integration test-e2e dev-backend dev-frontend
 
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z0-9_-]+:.*## / {printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -38,6 +38,9 @@ observe: ## Start the app AND the observability stack (Grafana http://localhost:
 
 observe-down: ## Stop the app and observability stacks (data kept; add -v by hand to wipe)
 	$(OBSERVE) down
+
+demo-alert: ## Make card moves fail on purpose and watch KanbanApiErrors fire (needs `make observe` + `make seed`)
+	observability/demo-alert.sh
 
 # Host port of the Compose database (docker-compose.yml default). Override with POSTGRES_PORT=....
 POSTGRES_PORT ?= 5433

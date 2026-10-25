@@ -128,6 +128,12 @@ and a span links back to its logs. Nothing user-supplied (e-mails, tokens,
 titles) is in any signal. Details and the metric reference:
 [`docs/observability.md`](docs/observability.md).
 
+Two alerts watch user impact, not machines: **KanbanApiErrors** (over 5 %
+of board/card requests failing for 30 s) and **KanbanApiDown** (`/health`
+unanswered for a minute). `make demo-alert` breaks card moves on purpose
+and shows the first one go pending → firing in about a minute, then clears
+the fault. Rules, thresholds and the demo: [`docs/alerting.md`](docs/alerting.md).
+
 ## Seed a demo board
 
 Against the Compose stack:
@@ -191,8 +197,8 @@ render.yaml         Render Blueprint: dev + prod services and databases
 .github/workflows/  ci.yml (every PR/push) and deploy.yml (dev automatic, prod manual)
 scripts/smoke.sh    post-deploy check: /health reports the expected sha, /login renders
 observability/      compose overlay + Collector, Prometheus, Alertmanager, Loki, Tempo, Grafana configs, dashboards/mini-kanban.json
-Makefile            up / down / logs / seed / observe / test / test-integration / test-e2e shortcuts
-docs/               testing, deployment, release process, observability (alerting and on-call follow)
+Makefile            up / down / logs / seed / observe / demo-alert / test / test-integration / test-e2e shortcuts
+docs/               testing, deployment, release process, observability, alerting (on-call follows)
 _docs/              plan, backlog, design system, testing guidelines, team roles
 ```
 
@@ -205,7 +211,8 @@ Backend layout (`backend/app/`):
 - `alembic/` — migrations; `alembic/env.py` reads `DATABASE_URL`
 - `models/` — one module per table: `User`, `Board`, `BoardMember`, `Column`, `Card`, `Label`/`CardLabel`, `ChecklistItem`, `Comment` (`Activity` exists but is unused in the MVP)
 - `schemas/` — Pydantic request/response models; every `*Out` timestamp is serialised with an explicit UTC offset
-- `routers/` — `auth`, `boards`, `columns`, `cards`, `labels`, `checklist`, `comments`, `members`, `dashboard`, `ai`
+- `routers/` — `auth`, `boards`, `columns`, `cards`, `labels`, `checklist`, `comments`, `members`, `dashboard`, `ai` (+ `debug`, only when `FAULT_INJECTION` is set)
+- `fault.py` — the demo fault switch behind `/debug/fault`; a no-op unless switched on
 - `services/` — `auth` (bcrypt + JWT, `get_current_user`), `access` (board-membership dependencies: non-member → `404`, non-owner → `403`), `ordering` (contiguous positions), `cards`, `columns`, `checklist`, `ai` (Gemini client behind a fake-able interface)
 - `scripts/seed.py` — the demo data
 

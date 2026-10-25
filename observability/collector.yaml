@@ -51,6 +51,11 @@ exporters:
       insecure: true
   prometheus:
     endpoint: 0.0.0.0:8889
+    # Drop series that stop being updated quickly (default is 5m). The app
+    # re-exports its cumulative counters every 10 s, so only genuinely stale
+    # series go — e.g. the probe's "200" series once the backend is down,
+    # which is what lets KanbanApiDown fire.
+    metric_expiration: 30s
     # Keep service.name etc. as labels on every series.
     resource_constant_labels:
       included: ["service.name", "service.version", "deployment.environment.name"]

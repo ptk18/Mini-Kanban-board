@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 import app.models  # noqa: F401  # registers every table on Base.metadata before create_all
-from app import telemetry
+from app import fault, telemetry
 from app.database import engine, prepare_database
 from app.version import app_version
 from app.routers import (
@@ -64,6 +64,11 @@ app.include_router(ai.router)
 app.include_router(cards.router)
 app.include_router(checklist.router)
 app.include_router(comments.router)
+if fault.enabled_by_env():
+    # Demo-only: /debug/fault (issue #45). Never set FAULT_INJECTION in production.
+    from app.routers import debug
+
+    app.include_router(debug.router)
 
 
 @app.get("/health")

@@ -21,6 +21,9 @@ services:
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
       OTEL_SERVICE_NAME: mini-kanban-api
       APP_ENV: ${APP_ENV:-local}
+      # Demo-only: registers POST /debug/fault so `make demo-alert` can make
+      # card moves fail. This overlay is the local stack; render.yaml never sets it.
+      FAULT_INJECTION: ${FAULT_INJECTION:-1}
     depends_on:
       otel-collector:
         condition: service_started

@@ -246,10 +246,14 @@ def request_logging_middleware(app: FastAPI) -> None:
             return await call_next(request)
         started = time.perf_counter()
         status_code = 500
+        error: dict[str, str] = {}
         try:
             response = await call_next(request)
             status_code = response.status_code
             return response
+        except Exception as exc:  # re-raised below; recorded so the 500 has a cause in the logs
+            error = {"error.type": type(exc).__name__, "error.message": str(exc)[:200]}
+            raise
         finally:
             duration_ms = round((time.perf_counter() - started) * 1000, 1)
             route = request.scope.get("route")
@@ -263,5 +267,5 @@ def request_logging_middleware(app: FastAPI) -> None:
             REQUESTS.add(1, attrs)
             REQUEST_DURATION.record(duration_ms, attrs)
             (log.error if status_code >= 500 else log.info)(
-                "http.request", duration_ms=duration_ms, **attrs
+                "http.request", duration_ms=duration_ms, **attrs, **error
             )

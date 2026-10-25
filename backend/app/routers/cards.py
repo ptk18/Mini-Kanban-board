@@ -16,6 +16,7 @@ from app.database import get_db
 from app.models import Board, Card, Column
 from app.schemas.card import CardCreate, CardOut, CardUpdate, Priority
 from app.services.access import get_board_for_member, get_card_for_member
+from app.fault import check_card_move
 from app.telemetry import CARD_MOVES, log
 from app.services.cards import (
     check_assignee,
@@ -131,6 +132,8 @@ def update_card(
     if "column_id" in fields or "position" in fields:
         from_column = card.column_id
         target_column = body.column_id if body.column_id is not None else card.column_id
+        if target_column != from_column:
+            check_card_move()  # demo fault injection, a no-op unless switched on
         place(db, card, target_column, body.position)
         if target_column != from_column:
             # The key user journey; counted and logged (ids only, no content).
