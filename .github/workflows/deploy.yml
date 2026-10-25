@@ -1,0 +1,110 @@
+# Continuous delivery to Render.
+#
+#   dev   — automatic: runs when the CI workflow has succeeded on main, calls
+#           the dev services' deploy hooks for that exact commit, then smoke
+#           tests the dev URLs until the new version is live.
+#   prod  — manual: "Run workflow" with environment=production. Uses the
+#           `production` GitHub environment, so required reviewers can be
+#           added there as an approval gate. `ref` lets you deploy (or roll
+#           back to) any commit sha instead of the latest main.
+#
+# Secrets (repository → Settings → Secrets and variables → Actions):
+#   RENDER_DEPLOY_HOOK_API_DEV,  RENDER_DEPLOY_HOOK_WEB_DEV
+#   RENDER_DEPLOY_HOOK_API_PROD, RENDER_DEPLOY_HOOK_WEB_PROD
+# Variables (same page, "Variables" tab):
+#   DEV_API_URL,  DEV_WEB_URL,  PROD_API_URL,  PROD_WEB_URL
+#
+# Until the secrets exist the jobs log "skipped" and exit green, so this
+# workflow is safe to merge before the Render account is set up.
+
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Target environment
+        type: choice
+        options: [dev, production]
+        default: production
+      ref:
+        description: Commit sha to deploy (empty = latest main). Use a known-good sha to roll back.
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  deploy-dev:
+    name: Deploy to dev (automatic after green CI)
+    if: >-
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
+      || (github.event_name == 'workflow_dispatch' && inputs.environment == 'dev')
+    runs-on: ubuntu-latest
+    environment:
+      name: dev
+      url: ${{ vars.DEV_WEB_URL }}
+    env:
+      HOOK_API: ${{ secrets.RENDER_DEPLOY_HOOK_API_DEV }}
+      HOOK_WEB: ${{ secrets.RENDER_DEPLOY_HOOK_WEB_DEV }}
+      API_URL: ${{ vars.DEV_API_URL }}
+      WEB_URL: ${{ vars.DEV_WEB_URL }}
+      SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || (inputs.ref != '' && inputs.ref || github.sha) }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.SHA }}
+      - name: Trigger Render deploys
+        run: |
+          if [ -z "$HOOK_API" ] || [ -z "$HOOK_WEB" ]; then
+            echo "::notice::RENDER_DEPLOY_HOOK_*_DEV secrets not set — skipping the dev deploy (see docs/deployment.md)."
+            echo "skipped=true" >> "$GITHUB_ENV"; exit 0
+          fi
+          echo "Deploying $SHA to dev"
+          curl -fsS -X POST "$HOOK_API?ref=$SHA" && echo
+          curl -fsS -X POST "$HOOK_WEB?ref=$SHA" && echo
+      - name: Smoke test dev
+        if: env.skipped != 'true'
+        run: scripts/smoke.sh "$API_URL" "$WEB_URL" "$SHA"
+
+  deploy-prod:
+    name: Deploy to production (manual)
+    if: github.event_name == 'workflow_dispatch' && inputs.environment == 'production'
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: ${{ vars.PROD_WEB_URL }}
+    env:
+      HOOK_API: ${{ secrets.RENDER_DEPLOY_HOOK_API_PROD }}
+      HOOK_WEB: ${{ secrets.RENDER_DEPLOY_HOOK_WEB_PROD }}
+      API_URL: ${{ vars.PROD_API_URL }}
+      WEB_URL: ${{ vars.PROD_WEB_URL }}
+      SHA: ${{ inputs.ref != '' && inputs.ref || github.sha }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.SHA }}
+      - name: Require green CI for this commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          conclusion=$(gh run list --workflow CI --commit "$SHA" --json conclusion -q '.[0].conclusion // "none"')
+          echo "CI for $SHA: $conclusion"
+          [ "$conclusion" = "success" ] || { echo "::error::Refusing to deploy a commit without a green CI run"; exit 1; }
+      - name: Trigger Render deploys
+        run: |
+          if [ -z "$HOOK_API" ] || [ -z "$HOOK_WEB" ]; then
+            echo "::notice::RENDER_DEPLOY_HOOK_*_PROD secrets not set — skipping the production deploy (see docs/deployment.md)."
+            echo "skipped=true" >> "$GITHUB_ENV"; exit 0
+          fi
+          echo "Deploying $SHA to production"
+          curl -fsS -X POST "$HOOK_API?ref=$SHA" && echo
+          curl -fsS -X POST "$HOOK_WEB?ref=$SHA" && echo
+      - name: Smoke test production
+        if: env.skipped != 'true'
+        run: scripts/smoke.sh "$API_URL" "$WEB_URL" "$SHA"

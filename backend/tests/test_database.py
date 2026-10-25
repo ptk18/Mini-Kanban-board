@@ -76,7 +76,7 @@ def test_get_db_closes_session_when_request_raises():
 def test_lifespan_creates_tables_and_health_still_works():
     with TestClient(fastapi_app) as client:
         assert client.get("/health").status_code == 200
-        assert client.get("/health").json() == {"status": "ok"}
+        assert client.get("/health").json()["status"] == "ok"
         assert set(inspect(database.engine).get_table_names()) >= TABLE_NAMES
 
 
@@ -174,3 +174,22 @@ def test_alembic_ini_has_no_hardcoded_url():
     text_ = database.ALEMBIC_INI.read_text()
     assert database.ALEMBIC_INI.exists()
     assert "sqlalchemy.url =" not in text_
+
+
+@pytest.mark.parametrize(
+    ("given", "expected"),
+    [
+        ("postgres://u:p@h:5432/d", "postgresql+psycopg://u:p@h:5432/d"),
+        ("postgresql://u:p@h/d", "postgresql+psycopg://u:p@h/d"),
+        ("postgresql+psycopg://u:p@h/d", "postgresql+psycopg://u:p@h/d"),
+        ("sqlite:///./x.db", "sqlite:///./x.db"),
+    ],
+)
+def test_normalize_database_url_accepts_provider_schemes(given, expected):
+    assert database.normalize_database_url(given) == expected
+
+
+def test_database_url_normalizes_the_environment_value(monkeypatch):
+    monkeypatch.setenv("DATABASE_URL", "postgres://u:p@h/d")
+    assert database.database_url() == "postgresql+psycopg://u:p@h/d"
+    assert make_engine(database.database_url()).dialect.driver == "psycopg"

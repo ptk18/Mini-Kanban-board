@@ -1,6 +1,7 @@
 # Mini Kanban
 
 [![CI](https://github.com/ptk18/Mini-Kanban-board/actions/workflows/ci.yml/badge.svg)](https://github.com/ptk18/Mini-Kanban-board/actions/workflows/ci.yml)
+[![Deploy](https://github.com/ptk18/Mini-Kanban-board/actions/workflows/deploy.yml/badge.svg)](https://github.com/ptk18/Mini-Kanban-board/actions/workflows/deploy.yml)
 
 A small Kanban board for a team: boards with columns and cards, labels,
 checklists, comments, invite links, a per-board dashboard, and Gemini-backed
@@ -99,6 +100,20 @@ Serves `http://localhost:3000`: sign up or log in, manage boards at `/boards`,
 work on a board at `/boards/[id]` (columns, cards, filters, members, invite
 links, card modal with AI actions, new task from text) and see its dashboard at `/boards/[id]/dashboard`.
 
+## Deployment
+
+The repository is deploy-ready for [Render](https://render.com): the
+Blueprint is [`render.yaml`](render.yaml), continuous delivery is
+[`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) (dev deploys
+automatically after green CI, production is a manual, approval-gated run, and
+rollback is one click or one `ref=`). Setup steps for the owner are in
+[`docs/deployment.md`](docs/deployment.md); the release and rollback flow in
+[`docs/release-process.md`](docs/release-process.md).
+
+**Public URL:** _to be added once the Render account is created and the first
+deploy has run._ Until then the deploy workflow exits green with a "skipped"
+notice.
+
 ## Seed a demo board
 
 Against the Compose stack:
@@ -158,8 +173,11 @@ What each layer proves and how they are kept apart is in
 frontend/           Next.js 16 (App Router), TypeScript, Tailwind CSS 4, Vitest; Dockerfile (standalone output)
 backend/            FastAPI, SQLAlchemy 2, SQLite or Postgres (Alembic), PyJWT + bcrypt, pytest; Dockerfile
 docker-compose.yml  db (Postgres 17) + backend + frontend, one command
+render.yaml         Render Blueprint: dev + prod services and databases
+.github/workflows/  ci.yml (every PR/push) and deploy.yml (dev automatic, prod manual)
+scripts/smoke.sh    post-deploy check: /health reports the expected sha, /login renders
 Makefile            up / down / logs / seed / test / test-integration / test-e2e shortcuts
-docs/               testing (more arrive with deployment, observability, on-call)
+docs/               testing, deployment, release process (observability and on-call follow)
 _docs/              plan, backlog, design system, testing guidelines, team roles
 ```
 

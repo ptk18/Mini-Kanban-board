@@ -25,8 +25,22 @@ IN_MEMORY_URLS = frozenset({"sqlite://", "sqlite:///:memory:"})
 ALEMBIC_INI = Path(__file__).resolve().parents[1] / "alembic.ini"
 
 
+def normalize_database_url(url: str) -> str:
+    """Accept the URL shapes hosting providers hand out.
+
+    Render, Heroku and friends give ``postgres://`` or ``postgresql://``;
+    SQLAlchemy 2 rejects the first and would pick the absent psycopg2 driver
+    for the second. Both become ``postgresql+psycopg://``. Anything else is
+    returned unchanged.
+    """
+    for prefix in ("postgres://", "postgresql://"):
+        if url.startswith(prefix):
+            return "postgresql+psycopg://" + url[len(prefix):]
+    return url
+
+
 def database_url() -> str:
-    return os.environ.get("DATABASE_URL", DEFAULT_DATABASE_URL)
+    return normalize_database_url(os.environ.get("DATABASE_URL", DEFAULT_DATABASE_URL))
 
 
 def is_sqlite_url(url: str) -> bool:

@@ -60,6 +60,13 @@ app.include_router(checklist.router)
 app.include_router(comments.router)
 
 
+def app_version() -> str:
+    """The deployed commit, for the post-deploy smoke test to confirm the new
+    build is live. ``APP_VERSION`` wins; Render sets ``RENDER_GIT_COMMIT``;
+    otherwise ``"dev"``."""
+    return os.environ.get("APP_VERSION") or os.environ.get("RENDER_GIT_COMMIT") or "dev"
+
+
 @app.get("/health")
 def health() -> dict[str, str]:
-    return {"status": "ok"}
+    return {"status": "ok", "version": app_version()}
