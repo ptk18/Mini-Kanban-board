@@ -12,3 +12,6 @@ AGENTS.md
 CLAUDE.md
 Dockerfile
 .dockerignore
+test-results/
+playwright-report/
+playwright.config.ts

@@ -26,7 +26,8 @@ services:
       timeout: 3s
       retries: 10
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      # 5433 on the host so a Postgres installed locally (usually on 5432) is not shadowed.
+      - "${POSTGRES_PORT:-5433}:5432"
 
   backend:
     build:

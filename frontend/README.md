@@ -79,6 +79,20 @@ npx vitest run tests/page.test.tsx
 
 `npm run test:watch` runs Vitest in watch mode.
 
+### Browser end-to-end tests (Playwright)
+
+`e2e/` holds Playwright specs that drive the real frontend against the real
+backend and database (the Docker Compose stack). They are excluded from
+Vitest. One-time setup, then run them against a stack that is already up:
+
+```bash
+npx playwright install chromium
+npm run test:e2e                  # expects http://localhost:3000; override with E2E_BASE_URL
+```
+
+`make -C .. test-e2e` builds and starts the stack, runs them and stops it.
+See [`docs/testing.md`](../docs/testing.md).
+
 ## Lint, typecheck, build
 
 ```bash

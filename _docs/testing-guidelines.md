@@ -1,7 +1,9 @@
 # Testing guidelines
 
-Every statement here is checked against the code as of issue #20. When the
-setup changes, change this file in the same commit.
+Every statement here is checked against the code as of issue #41. When the
+setup changes, change this file in the same commit. This page is about
+*writing* tests; [`docs/testing.md`](../docs/testing.md) is about *running*
+them and what each layer proves.
 
 ## Where tests live
 
@@ -9,8 +11,8 @@ setup changes, change this file in the same commit.
 |---|---|---|---|
 | backend | `backend/tests/` | pytest | `test_<area>.py`, one file per router or concern (`test_auth.py`, `test_boards.py`, `test_cards.py`, `test_ai.py`, `test_seed.py`, …) |
 | frontend | `frontend/tests/` | Vitest + React Testing Library (jsdom) | `<thing>.test.tsx` |
-
-There are no end-to-end browser tests.
+| backend integration | `backend/tests/integration/` | pytest against a real Postgres; skipped unless `TEST_DATABASE_URL` is set | `test_pg_<area>.py` (unique names — the test tree is not a package) |
+| browser e2e | `frontend/e2e/` | Playwright, Chromium, against the Compose stack | `<flow>.spec.ts` |
 
 ## How to run them
 
@@ -30,7 +32,39 @@ npx vitest run tests/page.test.tsx
 npm run test:watch               # watch mode, local only
 ```
 
-Both suites must be green before an issue is closed; QA re-runs them.
+Integration and e2e, from the repo root (Docker needed):
+
+```sh
+make test-integration            # starts the Compose db, runs backend/tests/integration
+make test-e2e                    # builds + starts the stack, runs Playwright, stops it
+make test                        # all four layers
+```
+
+Every layer must be green before an issue is closed; QA re-runs them.
+
+## Integration conventions (Postgres)
+
+- Fixtures in `tests/integration/conftest.py`: `pg_engine` (module scope:
+  drops the schema, runs `alembic upgrade head`), `pg_session` (truncates
+  every table first), `pg_client` (`TestClient` with `get_db` overridden to
+  that session), `alembic_cfg`. Reuse them; do not open your own connection.
+- Test what only a real Postgres can show: migration output vs. models,
+  `ondelete` behaviour, unique indexes, type mapping, the seed. Route
+  contracts belong in the unit suite — do not duplicate them here.
+- Sign up through the API (`signup(client, email)` helper) rather than
+  inserting `User` rows, so the bcrypt and email-normalisation paths run too.
+
+## Browser e2e conventions (Playwright)
+
+- Query by role and label, same priority as the component tests
+  (`getByRole("button", { name: "Create board" })`, `getByLabel("Add card
+  to To Do")`). If a selector needs a test id, fix the markup instead.
+- Each spec creates its own user (`e2e-<timestamp>@example.com`) and board
+  so runs are independent of existing data and of each other.
+- Prove persistence, not just rendering: reload after a write and assert
+  the data is still there.
+- Keep it to the few journeys that cross every layer; everything else is
+  cheaper one level down.
 
 ## Backend conventions
 
@@ -95,9 +129,9 @@ Both suites must be green before an issue is closed; QA re-runs them.
 
 ## User-flow tests
 
-Flows (log in → open a board → move a card) are covered as **component tests
-of the page that owns the flow**, with the API client mocked to return
-fixture data, rather than as browser end-to-end tests:
+Most flows (log in → open a board → move a card) are covered as **component
+tests of the page that owns the flow**, with the API client mocked to return
+fixture data; only the core journey also has a browser e2e test (above):
 
 1. Render the page component with the mocked client.
 2. Drive it as a user would (type, click, press `Escape`).

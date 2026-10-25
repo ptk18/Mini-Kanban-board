@@ -137,12 +137,17 @@ curl -s http://127.0.0.1:8000/boards -H "Authorization: Bearer $TOKEN"
 ## Run the tests
 
 ```sh
-make test                            # both suites below
-cd backend && uv run pytest          # FastAPI TestClient + in-memory SQLite, no server needed
-cd frontend && npm test              # Vitest + React Testing Library, single run
+make test                            # every layer below, one command, non-zero exit on any failure
+make test-unit                       # the two fast suites, no Docker
+cd backend && uv run pytest          # backend unit: FastAPI TestClient + in-memory SQLite
+cd frontend && npm test              # frontend unit: Vitest + React Testing Library
+make test-integration                # backend against a real Postgres (Compose db): migrations, seed, the main journey
+make test-e2e                        # Playwright in Chromium against the whole Compose stack
 ```
 
-Conventions for writing tests are in
+The browser tests need `cd frontend && npx playwright install chromium` once.
+What each layer proves and how they are kept apart is in
+[`docs/testing.md`](docs/testing.md); conventions for writing tests are in
 [`_docs/testing-guidelines.md`](_docs/testing-guidelines.md).
 
 ## Architecture
@@ -151,7 +156,8 @@ Conventions for writing tests are in
 frontend/           Next.js 16 (App Router), TypeScript, Tailwind CSS 4, Vitest; Dockerfile (standalone output)
 backend/            FastAPI, SQLAlchemy 2, SQLite or Postgres (Alembic), PyJWT + bcrypt, pytest; Dockerfile
 docker-compose.yml  db (Postgres 17) + backend + frontend, one command
-Makefile            up / down / logs / seed / test shortcuts
+Makefile            up / down / logs / seed / test / test-integration / test-e2e shortcuts
+docs/               testing (more arrive with deployment, observability, on-call)
 _docs/              plan, backlog, design system, testing guidelines, team roles
 ```
 

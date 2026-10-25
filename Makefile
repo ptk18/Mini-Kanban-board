@@ -7,10 +7,10 @@ COMPOSE ?= docker compose
 
 .DEFAULT_GOAL := help
 
-.PHONY: help up down logs ps seed test test-unit test-backend test-frontend dev-backend dev-frontend
+.PHONY: help up down logs ps seed test test-unit test-backend test-frontend test-integration test-e2e dev-backend dev-frontend
 
 help: ## Show this help
-	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z_-]+:.*## / {printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z0-9_-]+:.*## / {printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
 up: ## Build and start Postgres, backend and frontend (http://localhost:3000)
 	$(COMPOSE) up --build -d
@@ -28,9 +28,21 @@ ps: ## Show service status and health
 seed: ## Load the demo board into the running stack
 	$(COMPOSE) exec backend python scripts/seed.py
 
-test: test-unit ## Run every test suite (unit now; integration and e2e are added by #41)
+# Host port of the Compose database (docker-compose.yml default). Override with POSTGRES_PORT=....
+POSTGRES_PORT ?= 5433
+TEST_DATABASE_URL ?= postgresql+psycopg://kanban:kanban@127.0.0.1:$(POSTGRES_PORT)/kanban
 
-test-unit: test-backend test-frontend ## Fast suites only: backend pytest on SQLite, frontend vitest
+test: test-unit test-integration test-e2e ## Every layer: unit, Postgres integration, browser e2e
+
+test-unit: test-backend test-frontend ## Fast suites only, no Docker: backend pytest on SQLite, frontend vitest
+
+test-integration: ## Backend against a real Postgres (starts the Compose db if needed)
+	$(COMPOSE) up -d db --wait
+	cd backend && TEST_DATABASE_URL=$(TEST_DATABASE_URL) uv run pytest tests/integration
+
+test-e2e: ## Playwright against the full Compose stack (built, started, then stopped)
+	$(COMPOSE) up -d --build --wait
+	cd frontend && npx playwright test; status=$$?; cd .. && $(COMPOSE) down; exit $$status
 
 test-backend: ## Backend unit tests
 	cd backend && uv run pytest

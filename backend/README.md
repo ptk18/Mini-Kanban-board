@@ -482,3 +482,19 @@ needs a database gets a fresh, empty schema from the `session` fixture; the
 `client` fixture gives a `TestClient` whose requests use that same session.
 bcrypt runs at cost 4 under the tests (one test checks the production cost 12)
 so the suite stays fast.
+
+### Integration tests (Postgres)
+
+`tests/integration/` runs the same app against a real Postgres: the Alembic
+migrations from empty to `head` (and `alembic check` for drift), the seed,
+cascades and the unique email index, and the signup → board → card → move →
+dashboard journey over HTTP. They need `TEST_DATABASE_URL`; without it they
+are **skipped**, so a plain `uv run pytest` is still a SQLite-only run.
+
+```sh
+make -C .. test-integration      # starts the Compose db on host port 5433 and runs them
+# or, against any Postgres you are happy to have WIPED:
+TEST_DATABASE_URL=postgresql+psycopg://kanban:kanban@127.0.0.1:5433/kanban uv run pytest tests/integration
+```
+
+See [`docs/testing.md`](../docs/testing.md) for the whole test pyramid.
