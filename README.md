@@ -3,6 +3,11 @@
 [![CI](https://github.com/ptk18/Mini-Kanban-board/actions/workflows/ci.yml/badge.svg)](https://github.com/ptk18/Mini-Kanban-board/actions/workflows/ci.yml)
 [![Deploy](https://github.com/ptk18/Mini-Kanban-board/actions/workflows/deploy.yml/badge.svg)](https://github.com/ptk18/Mini-Kanban-board/actions/workflows/deploy.yml)
 
+**Live demo:** <https://mini-kanban-web.vercel.app> — log in as
+`ada@example.com` / `insurance-demo` to open the seeded demo board, or sign
+up. API docs: <https://mini-kanban-api.vercel.app/docs>. (Free hosting: the
+first request after a quiet spell can take a few seconds to wake up.)
+
 A small Kanban board for a team: boards with columns and cards, labels,
 checklists, comments, invite links, a per-board dashboard, and AI card
 actions (OpenAI, or Gemini) that only ever *propose* changes. Runs locally: a FastAPI +
