@@ -95,7 +95,14 @@ if ! has_env backend JWT_SECRET; then
 fi
 if [ -n "${OPENAI_API_KEY:-}" ]; then set_env backend OPENAI_API_KEY "$OPENAI_API_KEY" secret; fi
 set_env backend OPENAI_MODEL "${OPENAI_MODEL:-gpt-4.1-mini}" config
-cors_now() { "${V[@]}" env pull --environment production --cwd backend /dev/stdout 2>/dev/null | sed -n 's/^CORS_ORIGINS="\{0,1\}\([^"]*\)"\{0,1\}$/\1/p'; }
+cors_now() {
+  # `env pull` only writes to a real file, and that file also receives the
+  # secrets: keep it private (umask 077) and delete it straight away.
+  local f; f="$(umask 077; mktemp)"
+  "${V[@]}" env pull "$f" --environment production --cwd backend --yes >/dev/null 2>&1 || true
+  sed -n 's/^CORS_ORIGINS="\{0,1\}\([^"]*\)"\{0,1\}$/\1/p' "$f"
+  rm -f "$f"
+}
 [ -n "$(cors_now)" ] || set_env backend CORS_ORIGINS "https://$WEB_PROJECT.vercel.app" config
 
 say "deploying the API"
