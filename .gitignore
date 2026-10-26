@@ -5,3 +5,6 @@
 oncall/worktrees/
 oncall/reports/
 oncall/payloads/
+
+# Vercel CLI project links
+.vercel/

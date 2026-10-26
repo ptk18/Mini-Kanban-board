@@ -103,19 +103,24 @@ links, card modal with AI actions, new task from text) and see its dashboard at 
 
 ## Deployment
 
-The repository is deploy-ready for [Render](https://render.com) on free
-plans only: the Blueprint is [`render.yaml`](render.yaml) (two free web
-services + the free Postgres; a no-expiry free database option is
-documented), continuous delivery is
-[`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) (dev deploys
-automatically after green CI, production is a manual, approval-gated run for
-when a paid environment exists, and rollback is one click or one `ref=`). Setup steps for the owner are in
-[`docs/deployment.md`](docs/deployment.md); the release and rollback flow in
-[`docs/release-process.md`](docs/release-process.md).
+Free, on [Vercel](https://vercel.com): the API runs as a FastAPI Vercel
+Function (`backend/`), the frontend as a Next.js project (`frontend/`), and
+Postgres on Neon. One command creates, configures, deploys and smoke-tests
+both:
 
-**Public URL:** _to be added once the Render account is created and the first
-deploy has run._ Until then the deploy workflow exits green with a "skipped"
-notice.
+```sh
+scripts/deploy-vercel.sh prod     # needs VERCEL_TOKEN and DEPLOY_DATABASE_URL in .env
+```
+
+CD ([`.github/workflows/deploy.yml`](.github/workflows/deploy.yml)) deploys
+every green `main` to the `-dev` projects automatically; production is a
+manual, approval-gated run, and rollback is a re-run with `ref=<sha>` or
+*Promote to Production* on an older deployment. Setup steps:
+[`docs/deployment.md`](docs/deployment.md); the release flow:
+[`docs/release-process.md`](docs/release-process.md). A Render Blueprint
+([`render.yaml`](render.yaml)) is kept as an alternative target.
+
+**Public URL:** _added after the first production deploy._
 
 ## Observability
 
@@ -207,9 +212,10 @@ What each layer proves and how they are kept apart is in
 frontend/           Next.js 16 (App Router), TypeScript, Tailwind CSS 4, Vitest; Dockerfile (standalone output)
 backend/            FastAPI, SQLAlchemy 2, SQLite or Postgres (Alembic), PyJWT + bcrypt, pytest; Dockerfile
 docker-compose.yml  db (Postgres 17) + backend + frontend, one command
-render.yaml         Render Blueprint: dev + prod services and databases
+render.yaml         Render Blueprint (alternative deploy target)
+backend/vercel.json Vercel function settings for the API
 .github/workflows/  ci.yml (every PR/push) and deploy.yml (dev automatic, prod manual)
-scripts/smoke.sh    post-deploy check: /health reports the expected sha, /login renders
+scripts/            deploy-vercel.sh (one-command deploy), smoke.sh (post-deploy check: /health reports the expected sha, /login renders)
 observability/      compose overlay + Collector, Prometheus, Alertmanager, Loki, Tempo, Grafana configs, dashboards/mini-kanban.json
 oncall/             webhook receiver, responder, evidence collector, autonomy policy, answer schema, recovery check
 Makefile            up / down / logs / seed / observe / demo-alert / oncall / demo-oncall / test / test-integration / test-e2e
@@ -305,8 +311,8 @@ responder's escalation path). Each is documented where it was found.
 | 5 | Application | Next.js + FastAPI + Postgres, `docker compose up --build`, [Run it](#run-it) |
 | 6 | Testing | unit + integration + e2e, `make test`, [`docs/testing.md`](docs/testing.md) |
 | 7 | Containerization | [`docker-compose.yml`](docker-compose.yml), `backend/Dockerfile`, `frontend/Dockerfile` |
-| 8 | Deployment | [`render.yaml`](render.yaml), [`docs/deployment.md`](docs/deployment.md) — steps documented; public URL pending the owner's Render account |
-| 9 | CI/CD | [`ci.yml`](.github/workflows/ci.yml) on every PR/push; [`deploy.yml`](.github/workflows/deploy.yml): dev automatic after green CI, production manual with approval; [`docs/release-process.md`](docs/release-process.md) |
+| 8 | Deployment | Vercel (API + frontend) + Neon, [`scripts/deploy-vercel.sh`](scripts/deploy-vercel.sh), [`docs/deployment.md`](docs/deployment.md); public URL in [Deployment](#deployment) |
+| 9 | CI/CD | [`ci.yml`](.github/workflows/ci.yml) on every PR/push; [`deploy.yml`](.github/workflows/deploy.yml): Vercel dev projects automatic after green CI, production manual with approval; [`docs/release-process.md`](docs/release-process.md) |
 | 10 | Observability | [`docs/observability.md`](docs/observability.md): traces, metrics and structured logs sharing a `trace_id`, no customer data, Grafana over Prometheus/Loki/Tempo |
 | 11 | Alerting on user impact | [`observability/alerts.yaml`](observability/alerts.yaml), [`docs/alerting.md`](docs/alerting.md), `make demo-alert` |
 | 12 | On-call agent | [`oncall/`](oncall/), [`docs/oncall.md`](docs/oncall.md), [`docs/oncall-demo.md`](docs/oncall-demo.md), `make demo-oncall` |

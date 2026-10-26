@@ -1,19 +1,79 @@
 # Deployment
 
-The app deploys to [Render](https://render.com) as two Docker web services
-(API and frontend) plus a managed Postgres, in two environments, **dev** and
-**production**. Everything Render needs is declared in
-[`render.yaml`](../render.yaml); everything GitHub needs is in
-[`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml). The flow
-between them is described in [`release-process.md`](release-process.md).
+The app deploys for free to [Vercel](https://vercel.com) as two projects
+built from this repository, with Postgres hosted by Neon:
 
-> **Status:** the repository is deploy-ready, but the Render account has not
-> been created yet, so there is no public URL at the moment. The deploy
-> workflow detects the missing secrets and exits green with a "skipped"
-> notice until the steps below are done. Once they are, the URL goes in the
-> README.
+| Project | Directory | Runtime | Production URL |
+|---|---|---|---|
+| `mini-kanban-api` | `backend/` | Vercel Python runtime, FastAPI as one Vercel Function (Python 3.14 from `pyproject.toml` + `uv.lock`; `backend/vercel.json` sets a 30 s max duration) | `https://mini-kanban-api.vercel.app` |
+| `mini-kanban-web` | `frontend/` | Next.js | `https://mini-kanban-web.vercel.app` |
+| database | — | Neon Postgres (free, no expiry), created from Vercel's *Storage* tab | — |
 
-## What gets deployed — all free
+The `-dev` twins (`mini-kanban-api-dev`, `mini-kanban-web-dev`) are the
+**dev** environment that CD deploys automatically; production is a manual
+run. See [`release-process.md`](release-process.md).
+
+Nothing in the app is Vercel-specific: the FastAPI lifespan still runs
+`alembic upgrade head` on a cold start, `/health` reports the deployed commit
+(`APP_VERSION`, set by the deploy script), and the same images run under
+Docker Compose.
+
+## Deploy to Vercel
+
+One-time, by the owner (about five minutes, no card):
+
+1. **Vercel account.** Sign up at vercel.com with the GitHub account, Hobby
+   plan. Create a token at <https://vercel.com/account/tokens> (scope: your
+   account, no expiry or a long one).
+2. **Database.** Vercel dashboard → *Storage* → *Create Database* → **Neon**
+   (free plan, region close to `iad1` / Washington, D.C., where Vercel runs
+   functions by default). Open it → *.env.local* tab → copy `DATABASE_URL`
+   (the pooled one, it ends in `?sslmode=require`).
+3. **Local `.env`** (repo root, git-ignored) gets two lines:
+
+   ```sh
+   VERCEL_TOKEN=...
+   DEPLOY_DATABASE_URL=postgres://...?sslmode=require
+   ```
+
+   `OPENAI_API_KEY` is already there; it is copied to the API project.
+
+Then one command does everything else: creates both projects, sets their
+environment variables (secrets are passed on stdin, never printed),
+deploys the API, deploys the frontend with the API's URL baked in, points
+the API's `CORS_ORIGINS` at the frontend, redeploys the API, and runs the
+smoke test:
+
+```sh
+scripts/deploy-vercel.sh prod      # or: dev
+```
+
+Optional demo data: `DATABASE_URL="$DEPLOY_DATABASE_URL" uv run --directory backend python scripts/seed.py`.
+
+For CD from GitHub, add `VERCEL_TOKEN`, `DEPLOY_DATABASE_URL`
+(+ optional `DEPLOY_DATABASE_URL_DEV`, e.g. a Neon branch, and
+`OPENAI_API_KEY`) as repository secrets. Until `VERCEL_TOKEN` exists the
+*Deploy* workflow logs "skipped" and stays green.
+
+**Rollback:** *Actions → Deploy → Run workflow*, `environment: production`,
+`ref: <known-good sha>`; or in Vercel, the project's *Deployments* →
+previous deployment → *Promote to Production* (instant, no rebuild).
+
+**Free-plan notes:** functions cold-start in a second or two after idle;
+the Hobby plan is for non-commercial use; Neon's free compute suspends
+after five idle minutes and wakes on the next query.
+
+## Alternative: Render
+
+The repository is also deploy-ready for [Render](https://render.com) as two
+Docker web services plus a managed Postgres. Everything Render needs is
+declared in [`render.yaml`](../render.yaml). This path was set aside because
+the Render workspace used for this project had its free web services
+suspended (free instance hours), so Render could create the database but
+not the services; the steps below still apply to a workspace in good
+standing.
+
+### What gets deployed — all free
 
 | Resource | Name | Plan | From |
 |---|---|---|---|
@@ -28,7 +88,7 @@ A production environment is a later, paid decision — see the end of this
 page.) Free web services sleep after 15 minutes without traffic and take
 about a minute to wake; the smoke test allows for that.
 
-### Free database that does not expire
+#### Free database that does not expire
 
 Render's free Postgres is deleted 30 days after creation (14-day grace).
 For something that outlives a review window, use a free hosted Postgres
@@ -44,7 +104,7 @@ point the API at it:
    `postgres://` scheme and the `sslmode` query parameter as-is; migrations
    run on the next deploy.
 
-### If the dashboard still asks for a card
+#### If the dashboard still asks for a card
 
 Create the same three things by hand, no Blueprint needed:
 
@@ -61,7 +121,7 @@ Create the same three things by hand, no Blueprint needed:
 
 Then continue from step 4 below (deploy hooks into GitHub).
 
-## One-time setup (owner)
+### One-time setup on Render (owner)
 
 1. **Create a Render account** and connect the GitHub account that owns
    `ptk18/Mini-Kanban-board`.
@@ -145,7 +205,7 @@ entrypoint that migrates on start, `PORT`, and `/health` are what any
 container platform (Fly.io, Railway, Cloud Run, a VM with Compose) needs;
 `docker-compose.yml` is a complete reference deployment.
 
-## Adding a production environment later (paid)
+### Adding a paid Render production environment later
 
 A second environment needs its own database, and a workspace has only one
 free Postgres. When that is wanted: add `mini-kanban-api-prod` /

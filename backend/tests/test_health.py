@@ -20,3 +20,10 @@ def test_health_reports_the_deployed_commit(monkeypatch):
     # An explicit APP_VERSION (e.g. from a Docker build arg) wins.
     monkeypatch.setenv("APP_VERSION", "v1.2.3")
     assert client.get("/health").json()["version"] == "v1.2.3"
+
+
+def test_health_reports_the_vercel_commit(monkeypatch):
+    monkeypatch.delenv("APP_VERSION", raising=False)
+    monkeypatch.delenv("RENDER_GIT_COMMIT", raising=False)
+    monkeypatch.setenv("VERCEL_GIT_COMMIT_SHA", "fedcba9")
+    assert client.get("/health").json()["version"] == "fedcba9"
