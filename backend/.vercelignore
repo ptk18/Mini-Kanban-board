@@ -6,3 +6,5 @@ tests/
 Dockerfile
 docker-entrypoint.sh
 .dockerignore
+.env*
+.vercel/

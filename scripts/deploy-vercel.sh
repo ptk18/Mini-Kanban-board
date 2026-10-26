@@ -26,7 +26,22 @@ case "$ENVIRONMENT" in prod) SUFFIX="" ;; dev) SUFFIX="-dev" ;; *) echo "usage: 
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
-if [ -f .env ]; then set -a; . ./.env; set +a; fi
+# .env values may hold characters the shell treats specially (Neon URLs
+# contain `&`), so parse it instead of sourcing it; the environment wins.
+if [ -f .env ]; then
+  while IFS= read -r line; do export "$line"; done < <(python3 - <<'PY'
+import os, re
+for raw in open(".env"):
+    m = re.match(r"^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\s*$", raw)
+    if not m or m.group(1) in os.environ:
+        continue
+    v = m.group(2)
+    if len(v) >= 2 and v[0] == v[-1] and v[0] in "'\"":
+        v = v[1:-1]
+    print(f"{m.group(1)}={v}")
+PY
+  )
+fi
 
 : "${VERCEL_TOKEN:?set VERCEL_TOKEN (https://vercel.com/account/tokens) in .env or the environment}"
 if [ "$ENVIRONMENT" = dev ]; then DB_URL="${DEPLOY_DATABASE_URL_DEV:-${DEPLOY_DATABASE_URL:-}}"; else DB_URL="${DEPLOY_DATABASE_URL:-}"; fi
@@ -45,8 +60,10 @@ ensure_project() { # <name> <dir>
   "${V[@]}" link --yes --project "$1" --cwd "$2" >/dev/null
 }
 
-set_env() { # <dir> <NAME> <value> [--sensitive]
-  printf '%s' "$3" | "${V[@]}" env add "$2" --environment production --force ${4:-} --cwd "$1" >/dev/null
+set_env() { # <dir> <NAME> <value> secret|config
+  # Secrets are write-only in Vercel; plain settings are stored as config so
+  # this script can read them back (CORS_ORIGINS below).
+  printf '%s' "$3" | "${V[@]}" env add "$2" --environment production --force --type "$4" --cwd "$1" >/dev/null 2>&1
 }
 
 has_env() { # <dir> <NAME>
@@ -55,15 +72,15 @@ has_env() { # <dir> <NAME>
 
 deploy() { # <dir> [extra args...] -> prints the stable production URL
   local dir="$1"; shift
-  local url
-  url=$("${V[@]}" deploy --prod --yes --cwd "$dir" "$@" 2>/dev/null | tail -1)
-  # The per-deployment URL is protected by Vercel Authentication; the
-  # project's production alias is public. Pick the shortest .vercel.app alias.
-  "${V[@]}" inspect "$url" --json 2>/dev/null | python3 -c '
-import json, sys
-d = json.load(sys.stdin)
-aliases = [a for a in d.get("aliases") or d.get("alias") or [] if isinstance(a, str) and a.endswith(".vercel.app")]
-print("https://" + min(aliases, key=len) if aliases else d.get("url", ""))'
+  local out err
+  out=$(mktemp); err=$(mktemp)
+  if ! "${V[@]}" deploy --prod --yes --cwd "$dir" "$@" >"$out" 2>"$err"; then
+    echo "deploy of $dir failed:" >&2; grep -v '^[[:space:]]*$' "$err" | tail -15 >&2; rm -f "$out" "$err"; return 1
+  fi
+  # Non-interactive deploys print JSON on stdout. The per-deployment URL is
+  # behind Vercel Authentication; productionUrl is the project's public alias.
+  python3 -c 'import json,sys; d=json.load(open(sys.argv[1]))["deployment"]; assert d["readyState"]=="READY", d["readyState"]; print(d["productionUrl"])' "$out"
+  rm -f "$out" "$err"
 }
 
 say "projects: $API_PROJECT, $WEB_PROJECT ($ENVIRONMENT, version $VERSION)"
@@ -71,27 +88,28 @@ ensure_project "$API_PROJECT" backend
 ensure_project "$WEB_PROJECT" frontend
 
 say "API environment"
-set_env backend DATABASE_URL "$DB_URL" --sensitive
+set_env backend DATABASE_URL "$DB_URL" secret
 if ! has_env backend JWT_SECRET; then
   # Generated once and kept: rotating it would log every user out.
-  set_env backend JWT_SECRET "$(python3 -c 'import secrets; print(secrets.token_urlsafe(48))')" --sensitive
+  set_env backend JWT_SECRET "$(python3 -c 'import secrets; print(secrets.token_urlsafe(48))')" secret
 fi
-[ -n "${OPENAI_API_KEY:-}" ] && set_env backend OPENAI_API_KEY "$OPENAI_API_KEY" --sensitive
-set_env backend OPENAI_MODEL "${OPENAI_MODEL:-gpt-4.1-mini}"
-has_env backend CORS_ORIGINS || set_env backend CORS_ORIGINS "https://$WEB_PROJECT.vercel.app"
+if [ -n "${OPENAI_API_KEY:-}" ]; then set_env backend OPENAI_API_KEY "$OPENAI_API_KEY" secret; fi
+set_env backend OPENAI_MODEL "${OPENAI_MODEL:-gpt-4.1-mini}" config
+cors_now() { "${V[@]}" env pull --environment production --cwd backend /dev/stdout 2>/dev/null | sed -n 's/^CORS_ORIGINS="\{0,1\}\([^"]*\)"\{0,1\}$/\1/p'; }
+[ -n "$(cors_now)" ] || set_env backend CORS_ORIGINS "https://$WEB_PROJECT.vercel.app" config
 
 say "deploying the API"
 API_URL=$(deploy backend --env "APP_VERSION=$VERSION")
 echo "API: $API_URL"
 
 say "deploying the frontend (NEXT_PUBLIC_API_URL=$API_URL)"
-set_env frontend NEXT_PUBLIC_API_URL "$API_URL"
+set_env frontend NEXT_PUBLIC_API_URL "$API_URL" config
 WEB_URL=$(deploy frontend --build-env "NEXT_PUBLIC_API_URL=$API_URL")
 echo "Web: $WEB_URL"
 
-if [ "$("${V[@]}" env pull --environment production --cwd backend /dev/stdout 2>/dev/null | sed -n 's/^CORS_ORIGINS="\{0,1\}\([^"]*\)"\{0,1\}$/\1/p')" != "$WEB_URL" ]; then
+if [ "$(cors_now)" != "$WEB_URL" ]; then
   say "pointing the API's CORS_ORIGINS at $WEB_URL and redeploying it"
-  set_env backend CORS_ORIGINS "$WEB_URL"
+  set_env backend CORS_ORIGINS "$WEB_URL" config
   API_URL=$(deploy backend --env "APP_VERSION=$VERSION")
 fi
 

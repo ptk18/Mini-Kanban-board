@@ -9,6 +9,9 @@ built from this repository, with Postgres hosted by Neon:
 | `mini-kanban-web` | `frontend/` | Next.js | `https://mini-kanban-web.vercel.app` |
 | database | — | Neon Postgres (free, no expiry), created from Vercel's *Storage* tab | — |
 
+**Live:** <https://mini-kanban-web.vercel.app> and
+<https://mini-kanban-api.vercel.app> (`/health`, `/docs`).
+
 The `-dev` twins (`mini-kanban-api-dev`, `mini-kanban-web-dev`) are the
 **dev** environment that CD deploys automatically; production is a manual
 run. See [`release-process.md`](release-process.md).
@@ -38,6 +41,10 @@ One-time, by the owner (about five minutes, no card):
 
    `OPENAI_API_KEY` is already there; it is copied to the API project.
 
+Keep the value quoted in `.env` (`DEPLOY_DATABASE_URL='…'`): Neon URLs
+contain `&`. The script parses `.env` itself, so it copes either way, but a
+shell that sources the file does not.
+
 Then one command does everything else: creates both projects, sets their
 environment variables (secrets are passed on stdin, never printed),
 deploys the API, deploys the frontend with the API's URL baked in, points
@@ -58,6 +65,14 @@ For CD from GitHub, add `VERCEL_TOKEN`, `DEPLOY_DATABASE_URL`
 **Rollback:** *Actions → Deploy → Run workflow*, `environment: production`,
 `ref: <known-good sha>`; or in Vercel, the project's *Deployments* →
 previous deployment → *Promote to Production* (instant, no rebuild).
+
+**Gotchas met on the first deploy (all handled in the repo):** projects
+created by the CLI have no framework preset, so Vercel served the API as
+static files (`NOT_FOUND`) until `backend/vercel.json` declared
+`"framework": "fastapi"` (and `frontend/vercel.json` `"nextjs"`); a
+`functions` entry keyed by `app/main.py` is rejected without that preset;
+`vercel link` writes `.env.local` files, which `.vercelignore` keeps out of
+uploads.
 
 **Free-plan notes:** functions cold-start in a second or two after idle;
 the Hobby plan is for non-commercial use; Neon's free compute suspends

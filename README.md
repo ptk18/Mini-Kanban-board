@@ -120,7 +120,9 @@ manual, approval-gated run, and rollback is a re-run with `ref=<sha>` or
 [`docs/release-process.md`](docs/release-process.md). A Render Blueprint
 ([`render.yaml`](render.yaml)) is kept as an alternative target.
 
-**Public URL:** _added after the first production deploy._
+**Live:** <https://mini-kanban-web.vercel.app> (API:
+<https://mini-kanban-api.vercel.app/docs>). Log in as `ada@example.com` /
+`insurance-demo` to see the seeded demo board, or sign up.
 
 ## Observability
 
@@ -311,7 +313,7 @@ responder's escalation path). Each is documented where it was found.
 | 5 | Application | Next.js + FastAPI + Postgres, `docker compose up --build`, [Run it](#run-it) |
 | 6 | Testing | unit + integration + e2e, `make test`, [`docs/testing.md`](docs/testing.md) |
 | 7 | Containerization | [`docker-compose.yml`](docker-compose.yml), `backend/Dockerfile`, `frontend/Dockerfile` |
-| 8 | Deployment | Vercel (API + frontend) + Neon, [`scripts/deploy-vercel.sh`](scripts/deploy-vercel.sh), [`docs/deployment.md`](docs/deployment.md); public URL in [Deployment](#deployment) |
+| 8 | Deployment | live at <https://mini-kanban-web.vercel.app>; Vercel (API + frontend) + Neon, [`scripts/deploy-vercel.sh`](scripts/deploy-vercel.sh), [`docs/deployment.md`](docs/deployment.md) |
 | 9 | CI/CD | [`ci.yml`](.github/workflows/ci.yml) on every PR/push; [`deploy.yml`](.github/workflows/deploy.yml): Vercel dev projects automatic after green CI, production manual with approval; [`docs/release-process.md`](docs/release-process.md) |
 | 10 | Observability | [`docs/observability.md`](docs/observability.md): traces, metrics and structured logs sharing a `trace_id`, no customer data, Grafana over Prometheus/Loki/Tempo |
 | 11 | Alerting on user impact | [`observability/alerts.yaml`](observability/alerts.yaml), [`docs/alerting.md`](docs/alerting.md), `make demo-alert` |
