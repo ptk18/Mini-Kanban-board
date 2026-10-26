@@ -8,12 +8,13 @@ The MVP focuses on:
 - Multiple personal/team boards
 - Custom Kanban columns
 - Standard task management
-- Basic collaboration and real-time updates
+- Basic collaboration (shared boards, invite links)
 - Embedded AI actions on cards
-- Simple AI project assistant
 - Simple project dashboard
 
 The goal is to build a polished, portfolio-ready MVP without expanding into a full project-management suite.
+
+Scope was cut on 2026-09-18 to keep the backlog at ~19 issues: real-time updates, the activity log, the board-level AI assistant and the profile/settings page moved to §18. The original wording is in git history.
 
 ## 2. Target Users
 
@@ -33,8 +34,7 @@ The tool should work for:
 Simple accounts with:
 - Sign up
 - Login
-- Logout
-- Basic user profile
+- Logout (button in the app header; no separate profile/settings page)
 - JWT authentication
 - Email/password authentication
 
@@ -148,21 +148,11 @@ Can:
 
 No advanced permission system in MVP.
 
-## 5. Real-Time Collaboration
+## 5. Keeping the Board Fresh
 
-Use **FastAPI WebSockets + Next.js frontend listener**.
+**No WebSockets in the MVP** (descoped, see §18).
 
-Real-time updates should cover basic board changes such as:
-- Card created
-- Card edited
-- Card moved
-- Card deleted
-- Column changes
-- Checklist changes
-- Comments
-- Basic membership changes where practical
-
-If one user changes a board, other connected members see the update without manually refreshing.
+The frontend refetches board data after each of its own mutations and when the browser tab regains focus. Another member's change appears on the next refetch or a manual refresh; that is acceptable for the MVP.
 
 ## 6. Task Organization
 
@@ -171,13 +161,11 @@ Search title and description.
 
 ### Filters
 Filter by:
-- Status
+- Status (column)
 - Priority
-- Label
 - Assignee
-- Due date
 
-No saved filters or advanced query builder.
+Filters combine with AND. No label or due-date filters, no saved filters, no advanced query builder.
 
 ## 7. Dashboard
 
@@ -195,17 +183,7 @@ The Kanban board remains the primary workspace.
 
 ## 8. Activity Log
 
-Use a basic activity log.
-
-Record major events such as:
-- Card created
-- Card edited
-- Card moved
-- Card deleted
-
-Example: `Freya moved "Implement authentication" from In Progress to Done.`
-
-Do not build detailed field-level audit history.
+**Descoped** (see §18). The `Activity` table stays in the schema because it already shipped with the data layer, but nothing writes to it or reads from it in the MVP. The dashboard (§7) is the only progress view.
 
 # 9. AI Features
 
@@ -275,28 +253,7 @@ Flow:
 
 ## 9.7 Project Assistant
 
-Keep a simple board-level project assistant.
-
-Context: **Current board only**.
-
-It can use:
-- Board name
-- Columns
-- Cards
-- Priorities
-- Due dates
-- Assignees
-- Labels
-
-It should not automatically use comments, activity history, or other boards.
-
-Example questions:
-- What tasks are overdue?
-- What should I work on next?
-- Which tasks are high priority?
-- What is currently in progress?
-
-The assistant responds in natural language.
+**Descoped** (see §18). The five card actions in §9.1 and natural-language task creation in §9.6 are the whole AI surface of the MVP.
 
 # 10. UI / UX
 
@@ -319,8 +276,7 @@ Primary screens:
 4. Board
 5. Card modal
 6. Dashboard
-7. Basic profile/settings
-8. Invitation flow
+7. Invitation flow
 
 The board is the primary screen.
 
@@ -350,10 +306,6 @@ Database approach: **SQLAlchemy only**, no Alembic migration system for the MVP.
 ## AI
 - Google Gemini API
 
-## Real-time
-- FastAPI WebSockets
-- Next.js WebSocket client/listener
-
 ## Deployment
 **Local only for MVP**.
 
@@ -371,7 +323,6 @@ mini-kanban/
 │   ├── FastAPI
 │   ├── SQLAlchemy
 │   ├── JWT authentication
-│   ├── WebSockets
 │   ├── Gemini integration
 │   ├── API routes
 │   └── tests/
@@ -396,9 +347,8 @@ backend/
     │   ├── auth.py
     │   ├── ai.py
     │   ├── boards.py
-    │   ├── cards.py
-    │   └── realtime.py
-    └── websocket/
+    │   └── cards.py
+    └── scripts/
 ```
 
 # 13. Core Data Models
@@ -529,15 +479,9 @@ POST /ai/card/{card_id}/prioritize
 POST /ai/card/{card_id}/estimate
 POST /ai/card/{card_id}/summarize
 POST /ai/create-task
-POST /ai/project-assistant
 ```
 
 AI endpoints should return suggestions/previews rather than silently modifying data.
-
-## WebSocket
-```text
-/ws/boards/{board_id}
-```
 
 # 15. Dashboard Calculations
 
@@ -582,7 +526,6 @@ Include:
 - Checklists
 - Comments
 - Parent/child cards
-- Activity history
 
 The seed project should demonstrate the AI features naturally.
 
@@ -597,7 +540,6 @@ Backend:
 - Board permission tests
 - Card CRUD tests
 - AI endpoint tests where practical
-- WebSocket tests where practical
 
 Frontend:
 - Key component tests
@@ -608,6 +550,13 @@ Focus on core business logic rather than a specific coverage percentage.
 # 18. Explicitly Out of Scope
 
 Do NOT implement these in the MVP:
+
+### Descoped on 2026-09-18 (backlog reduction)
+- Real-time updates over WebSockets — the frontend refetches instead (§5)
+- Activity log endpoints and view — the `Activity` table stays unused (§8)
+- Board-level AI project assistant (§9.7)
+- Profile/settings page — logout lives in the header (§3.1)
+- Label and due-date filters (§6)
 
 ### Collaboration
 - Advanced roles
@@ -678,16 +627,13 @@ The MVP is complete when a user can:
 14. Add comments
 15. Search and filter cards
 16. Invite another user with a permanent invite link
-17. Collaborate through WebSockets
-18. See basic activity history
-19. View the simple dashboard
-20. Use AI card actions
-21. Preview AI changes before applying them
-22. Generate child cards from a parent task
-23. Generate effort estimates
-24. Generate task cards from natural language
-25. Use the board-level AI assistant
-26. Run the application locally with Next.js + FastAPI + SQLite
+17. View the simple dashboard
+18. Use AI card actions
+19. Preview AI changes before applying them
+20. Generate child cards from a parent task
+21. Generate effort estimates
+22. Generate task cards from natural language
+23. Run the application locally with Next.js + FastAPI + SQLite
 
 # 20. Product Principle
 
